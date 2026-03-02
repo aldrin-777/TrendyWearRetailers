@@ -1,10 +1,11 @@
 "use client";
 
 import Image from 'next/image';
-import { MdFavoriteBorder, MdArrowOutward } from 'react-icons/md';
+import { MdFavoriteBorder, MdArrowOutward, MdFavorite } from 'react-icons/md';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { addToWishlist } from '@/app/actions/user/AddToWishlist';
 
 const BUCKET_NAME = "images";
 
@@ -18,6 +19,7 @@ type WomensProduct = {
 export default function WomensWearScroll() {
   const [womensWearData, setWomensWearData] = useState<WomensProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wishlist, setWishlist] = useState<number[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -137,9 +139,20 @@ export default function WomensWearScroll() {
                     <button 
                       title="Heart"
                       type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!wishlist.includes(item.id)) {
+                          try {
+                            await addToWishlist(item.id);
+                            setWishlist([...wishlist, item.id]);
+                          } catch (err) {
+                            console.error("Failed to add to wishlist", err);
+                          }
+                        }
+                      }}
                       className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-colors text-slate-900"
                     >
-                      <MdFavoriteBorder size={20} />
+                      {wishlist.includes(item.id) ? <MdFavorite size={20} className="text-red-500" /> : <MdFavoriteBorder size={20} />}
                     </button>
                   </div>
 
