@@ -3,8 +3,16 @@
 import { createContext, useContext, useState } from "react";
 
 type CartItem = {
-  id: number;
-  quantity: number;
+  id: number, 
+  name: string, 
+  category: string, 
+  price: number, 
+  quantity: number, 
+  size: string, 
+  color: string, 
+  image: string, 
+  isFavorite: boolean,
+  isEditing: false 
 };
 
 type CartContextType = {

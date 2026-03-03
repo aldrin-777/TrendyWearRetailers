@@ -7,17 +7,20 @@ import ProductCard from "../components/ProductCard";
 import { createClient } from "@/utils/supabase/client";
 import { fetchProducts, Product } from "../lib/fetchProducts";
 import FiltersSidebar from "../components/FilterSidebar";
+import { useSearchParams } from "next/navigation";
 
 const BUCKET_NAME = "images";
 
 export default function Page() {
   const [selectedSize, setSelectedSize] = useState("XS");
   const [activeCategory, setActiveCategory] = useState("Best Sellers");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string|null>();
   const [activePage, setActivePage] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const searchParams = useSearchParams();
+  
   // ✅ sub-category state
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>(
     []
@@ -53,7 +56,7 @@ export default function Page() {
   const categories = ["Polo Shirts", "Jackets", "Shirts", "Best Sellers"];
 
   useEffect(() => {
-    fetchProducts()
+    fetchProducts(searchParams.get('search'),searchParams.get('tags'))
       .then(setProducts)
       .catch((err) => console.error("Error fetching products:", err))
       .finally(() => setLoading(false));

@@ -8,6 +8,7 @@ import ProductCard from "@/app/(site)/components/ProductCard";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { addToCart } from "@/app/actions/user/AddToCart";
 
 const BUCKET_NAME = "images";
 
@@ -20,6 +21,7 @@ type Product = {
     price: number;
     rating: number;
     reviews: number;
+    is_liked: boolean;
     colors: string[];
     description: string[];
     features: string[];
@@ -47,6 +49,7 @@ export default function ProductPage() {
     useEffect(() => {
         async function fetchData() {
             const supabase = createClient();
+            const user_id = (await supabase.auth.getSession()).data.session?.user.id
 
             // Fetch all items
             const { data: items, error } = await supabase
@@ -73,6 +76,19 @@ export default function ProductPage() {
                 }
             }
 
+             const { data: wishlisted } = await supabase
+                .from("wishlist")
+                .select("id, item_id")
+                .eq("user_id", user_id)
+                .in("item_id", itemIds)
+
+            const wishlistSet = new Set<number>();
+            if (wishlisted) {
+                for (const w of wishlisted) {
+                    wishlistSet.add(w.item_id);
+                }
+            }
+
             // Map items to Product shape
             const mapped: Product[] = items.map((item) => {
                 const imageUrls = (item.image_id ?? []).map(
@@ -87,6 +103,7 @@ export default function ProductPage() {
                     rating: 0,       // not in DB yet
                     reviews: 0,      // not in DB yet
                     colors: [],      // not in DB yet
+                    is_liked: wishlistSet.has(item.id),
                     description: item.description ? [item.description] : [],
                     features: [],    // not in DB yet
                 };
@@ -196,6 +213,12 @@ export default function ProductPage() {
         <p className="text-gray-500 text-lg">Product not found</p>
         </div>
     )   
+
+    function getRandomItems<T>(arr: T[], count: number): T[] {
+        const shuffled = [...arr] // clone to avoid mutating original
+            .sort(() => Math.random() - 0.5); // simple shuffle
+        return shuffled.slice(0, count);
+    }
 
     return (
         <>
@@ -314,7 +337,9 @@ export default function ProductPage() {
 
                             {/* BUTTONS */}
                             <div className="flex flex-col gap-3">
-                                <button className="w-full py-3 rounded-full border border-[#003049] text-[#003049] font-semibold hover:bg-[#003049]/10">
+                                <button className="w-full py-3 rounded-full border border-[#003049] text-[#003049] font-semibold hover:bg-[#003049]/10"
+                                    onClick={()=>addToCart(id)}
+                                >
                                     Add to Cart
                                 </button>
                                 <button className="w-full py-3 rounded-full bg-[#003049] text-[#F5F3F3] font-semibold">
@@ -541,7 +566,7 @@ export default function ProductPage() {
                     <div className="mt-20">
                         <h3 className="text-lg font-semibold mb-6">You might like:</h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-8">
-                            {products.slice(0, 5).map((p) => (
+                            {getRandomItems(products, 5).map((p) => (
                                 <ProductCard key={p.id} {...p} />
                             ))}
                         </div>

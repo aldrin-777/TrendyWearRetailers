@@ -12,6 +12,7 @@ import {
   MdCheck
 } from 'react-icons/md';
 import Breadcrumb from "@/app/(site)/components/Breadcrumb";
+import { fetchShoppingCart } from '../lib/fetchShoppingCart';
 import { useCart } from '../context/CartContext';
 
 export default function ShoppingCart() {
@@ -27,71 +28,46 @@ export default function ShoppingCart() {
 
   const { cartItems, setCartItems } = useCart();
 
-  const [items, setItems] = useState([
-    { 
-      id: 1, 
-      name: 'Flannel Polo', 
-      category: 'Button-down Collar', 
-      price: 1000.00, 
-      quantity: 1, 
-      size: 'XL', 
-      color: 'Yellow', 
-      image: '/images/placeholder.jpg', 
-      isFavorite: true,
-      isEditing: false 
-    },
-    { 
-      id: 2, 
-      name: 'Flannel', 
-      category: 'Button-down Collar', 
-      price: 1000.00, 
-      quantity: 2, 
-      size: 'XL', 
-      color: 'Yellow', 
-      image: '/images/placeholder.jpg', 
-      isFavorite: false,
-      isEditing: false
-    },
-  ]);
-
   useEffect(() => {
-    setCartItems(items);
-  }, [items]);
+    fetchShoppingCart()
+      .then(setCartItems)
+      .catch(err => console.error(err));
+}, []);
 
   // --- DERIVED CALCULATIONS ---
   const subtotal = useMemo(() =>    
-    items.reduce((acc, item) => acc + (item.price * item.quantity), 0), 
-  [items]);
+    cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0), 
+  [cartItems]);
 
   const totalFee = subtotal + SHIPPING_FEE_VALUE - DISCOUNT_VALUE;
 
   // --- HANDLERS ---
   const updateQuantity = (id: number, delta: number) => {
-    setItems(prev => prev.map(item => 
+    setCartItems(prev => prev.map(item => 
       item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
     ));
   };
 
   const toggleFavorite = (id: number) => {
-    setItems(prev => prev.map(item =>
+    setCartItems(prev => prev.map(item =>
       item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
     ));
   };
 
   const toggleEditMode = (id: number) => {
-    setItems(prev => prev.map(item =>
+    setCartItems(prev => prev.map(item =>
       item.id === id ? { ...item, isEditing: !item.isEditing } : item
     ));
   };
 
   const updateItemOption = (id: number, field: 'size' | 'color', value: string) => {
-    setItems(prev => prev.map(item =>
+    setCartItems(prev => prev.map(item =>
       item.id === id ? { ...item, [field]: value } : item
     ));
   };
 
   const removeItem = (id: number) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+    setCartItems(prev => prev.filter(item => item.id !== id));
   };
 
   return (
@@ -114,8 +90,8 @@ export default function ShoppingCart() {
           {/* LEFT COLUMN: ITEM LIST */}
           <div className="flex-grow bg-[#E5E4E4]/60 rounded-[10px] p-8 shadow-sm h-auto transition-all duration-500 ease-in-out">
             <div className="flex flex-col">
-              {items.length > 0 ? (
-                items.map((item) => {
+              {cartItems.length > 0 ? (
+                cartItems.map((item) => {
                   const itemTotal = item.price * item.quantity;
                   
                   return (
@@ -256,7 +232,7 @@ export default function ShoppingCart() {
               </div>
 
               <button 
-                disabled={items.length === 0}
+                disabled={cartItems.length === 0}
                 className="w-full mt-6 bg-[#003049] text-white py-4 rounded-full font-bold text-lg hover:bg-[#00263d] transition-all active:scale-[0.98] disabled:bg-gray-400"
               >
                 Proceed To Checkout

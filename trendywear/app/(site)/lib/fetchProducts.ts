@@ -1,7 +1,6 @@
 'use client';
 
 import { createClient } from "@/utils/supabase/client";
-import { useEffect,useState } from "react";
 
 export type Product = {
     id: number;
@@ -17,13 +16,23 @@ export type Product = {
 
 const BUCKET_NAME = "images";
 
-export async function fetchProducts():Promise<Product[]> {
+export async function fetchProducts(search?: string | null,tags?:string |null):Promise<Product[]> {
     const supabase = createClient();
     const user_id = (await supabase.auth.getSession()).data.session?.user.id
 
-    const { data: items, error } = await supabase
+    let query = supabase
         .from("items")
-        .select("id, name, image_id");
+        .select("id, name, image_id, tags");
+
+    if (search && search.trim() !== "") {
+        query = query.ilike("name", `%${search}%`);
+    }
+
+    if (tags){
+        query = query.contains('tags',[tags])
+    }
+
+    const { data: items, error } = await query
 
     if (error || !items) {
         throw error ?? new Error('No items returned');
