@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 export type ShoppingCartItem = {
     id: number, 
     name: string, 
+    item_id: number,
     category: string, 
     price: number, 
     quantity: number, 
@@ -90,6 +91,7 @@ export async function fetchShoppingCart(): Promise<ShoppingCartItem[]> {
     return {
       id: ci.id,
       name: ci.item.name ?? "Unnamed",
+      item_id: ci.item.id,
       category: ci.item.tags,
       price: priceMap[ci.item.id] ?? 0,
       quantity: ci.quantity,

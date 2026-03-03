@@ -15,6 +15,7 @@ import Breadcrumb from "@/app/(site)/components/Breadcrumb";
 import { fetchShoppingCart } from '../lib/fetchShoppingCart';
 import { useCart, CartItem } from '../context/CartContext';
 import { addToCart } from '@/app/actions/user/AddToCart';
+import { removeFromCart } from '@/app/actions/user/RemoveFromCart';
 
 export default function ShoppingCart() {
   const CURRENCY = "PHP";
@@ -121,14 +122,14 @@ export default function ShoppingCart() {
                           {/* Stepper */}
                           <div className="flex items-center gap-5">
                             <button 
-                              onClick={() => {updateQuantity(item.id, -1);addToCart(item.id+1,-1);}} 
+                              onClick={() => {updateQuantity(item.id, -1);addToCart(item.item_id,-1);}} 
                               className="w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-md text-[#C1121F] hover:bg-gray-50 transition-colors"
                             >
                               <MdRemove size={18} />
                             </button>
                             <span className="font-bold text-[#C1121F] text-lg select-none">{item.quantity}</span>
                             <button 
-                              onClick={() => {updateQuantity(item.id, 1);addToCart(item.id+1,1);}} 
+                              onClick={() => {updateQuantity(item.id, 1);addToCart(item.item_id,1);}} 
                               className="w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-md text-[#C1121F] hover:bg-gray-50 transition-colors"
                             >
                               <MdAdd size={18} />
@@ -186,7 +187,7 @@ export default function ShoppingCart() {
                             </button>
                             <div className="w-[2px] h-6 bg-gray-400 mx-1"></div>
                             <button 
-                              onClick={() => removeItem(item.id)} 
+                              onClick={() => {removeItem(item.id);removeFromCart(item.item_id)}} 
                               className="text-[#003049] hover:text-red-600 transition-colors"
                             >
                               <MdDeleteOutline size={28} />
