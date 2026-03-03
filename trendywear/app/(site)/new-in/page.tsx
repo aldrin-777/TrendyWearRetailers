@@ -103,7 +103,7 @@ export default function Page() {
 
             {/* TITLE */}
             <h1 className="text-4xl font-bold text-[#C1121F] mb-4">
-              All Products
+              New In
             </h1>
 
             {/* SEARCH + CATEGORIES */}
