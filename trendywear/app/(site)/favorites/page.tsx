@@ -44,11 +44,10 @@ export default function Favorites() {
         </header>
 
         <section className="flex-grow">
-          <div className="max-w-[1044px]"> 
             {!loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 pb-10 lg:pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10 pb-10 lg:pb-4">
                 {favorites.length === 0 ? (
-                  <div className="py-40 text-center w-full">
+                  <div className="py-40 col-span-full text-center w-full">
                     <div className="font-black text-gray-200 text-4xl uppercase tracking-[0.5em] mb-8">
                       Empty List
                     </div>
@@ -72,7 +71,6 @@ export default function Favorites() {
                 </div>
               </div>
             )}
-          </div>
         </section>
       </div>
     </div>
