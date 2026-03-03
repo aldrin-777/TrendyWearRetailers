@@ -9,7 +9,6 @@ export async function removeFromCart(itemId: number) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !user){
-    return;
     throw new Error('Not authenticated')
   }
   
