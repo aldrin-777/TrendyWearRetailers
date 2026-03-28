@@ -38,6 +38,11 @@ export default function ProductCard({
 
     const [modal, setModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+    const hasDiscount = oldPrice && oldPrice > price;
+    const discountPercent = hasDiscount
+    ? Math.round(((oldPrice - price) / oldPrice) * 100)
+    : 0;
+
     return (
         <div className="group">
             {modal && (
@@ -54,6 +59,11 @@ export default function ProductCard({
                     className="relative bg-gray border border-[#A0A0A0] rounded-2xl p-0 overflow-hidden transition-all duration-300
                     group-hover:-translate-y-1 group-hover:shadow-[0_12px_30px_rgba(0,0,0,0.15)]"
                 >
+                    {hasDiscount && (
+                        <div className="absolute top-4 left-4 bg-[#C1121F] text-white text-xs font-bold px-3 py-1 rounded-full shadow z-10">
+                            -{discountPercent}%
+                        </div>
+                    )}
                     <div className="relative h-64 rounded-xl overflow-hidden">
                         <Image
                             src={mainImage}
@@ -123,7 +133,7 @@ export default function ProductCard({
 
                 {/* PRICE */}
                 <div className="flex items-center gap-2 text-sm mt-1">
-                    {oldPrice && (
+                    {hasDiscount  && (
                         <span className="text-gray-500 line-through">
                             PHP {oldPrice.toLocaleString()}.00
                         </span>

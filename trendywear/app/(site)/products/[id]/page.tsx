@@ -76,14 +76,19 @@ export default function ProductPage() {
                 .select("item_id, price")
                 .in("item_id", itemIds);
 
-            const priceMap: Record<number, number> = {};
+            const priceMap: Record<number, { price: number; oldPrice?: number }> = {};
             if (prices) {
                 for (const p of prices) {
-                    if (!(p.item_id in priceMap)) priceMap[p.item_id] = p.price;
+                    if (!(p.item_id in priceMap)) {
+                        priceMap[p.item_id] = {
+                            price: p.price ?? 0,           // fallback to 0
+                            oldPrice: (p as any).old_price // optional, may not exist
+                        };
+                    }
                 }
             }
 
-             const { data: wishlisted } = await supabase
+            const { data: wishlisted } = await supabase
                 .from("wishlist")
                 .select("id, item_id")
                 .eq("user_id", user_id)
@@ -102,11 +107,13 @@ export default function ProductPage() {
                     (imgId: string) =>
                         supabase.storage.from(BUCKET_NAME).getPublicUrl(imgId).data.publicUrl
                 );
+                const priceObj = priceMap[item.id] ?? { price: 0 };
                 return {
                     id: item.id,
                     name: item.name ?? "Unnamed",
                     images: imageUrls.length > 0 ? imageUrls : ["/placeholder.jpg"],
-                    price: priceMap[item.id] ?? 0,
+                    price: priceObj.price,
+                    oldPrice: priceObj.oldPrice, 
                     rating: 0,       // not in DB yet
                     reviews: 0,      // not in DB yet
                     colors: [],      // not in DB yet
@@ -336,16 +343,24 @@ export default function ProductPage() {
                             {/* PRICE */}
                             <div className="mb-6 relative">
                                 <div className="flex items-center gap-3">
-                                    <span className="text-[32px] font-semibold text-[#1E293B]">
-                                        PHP {product.price.toLocaleString()}.00
-                                    </span>
-                                    {product.oldPrice && (
+                                    {product.oldPrice && product.oldPrice > product.price ? (
+                                        <>
+                                        <span className="text-[32px] font-semibold text-[#1E293B]">
+                                            PHP {product.price.toLocaleString()}.00
+                                        </span>
                                         <span className="text-[#666666] line-through text-[20px]">
                                             PHP {product.oldPrice.toLocaleString()}.00
                                         </span>
+                                        <span className="bg-red-500 text-white text-[14px] px-2 py-1 rounded">
+                                            {Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}% Off
+                                        </span>
+                                        </>
+                                    ) : (
+                                        <span className="text-[32px] font-semibold text-[#1E293B]">
+                                        PHP {product.price.toLocaleString()}.00
+                                        </span>
                                     )}
                                 </div>
-
                                 <div className="mt-7 mb-10 h-[2px] bg-[#B7B7B7] w-full rounded" />
                             </div>
 

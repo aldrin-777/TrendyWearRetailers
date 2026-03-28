@@ -12,7 +12,7 @@ const BUCKET_NAME = "images";
 
 export default function Page() {
   const [selectedSize, setSelectedSize] = useState("XS");
-  const [searchQuery, setSearchQuery] = useState<string|null>();
+  const [searchQuery, setSearchQuery] = useState("");
   const [activePage, setActivePage] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,6 +149,18 @@ export default function Page() {
                   <ProductCard key={product.id} {...product} />
                 ))
               )}
+              {/*SAMPLE CARD WITH DISCOUNT*/}
+              <ProductCard
+                id={1}
+                name="Flannel Polo"
+                images={["/images/placeholder.jpg"]}
+                oldPrice={2000}   // 👈 ORIGINAL PRICE
+                price={1500}      // 👈 DISCOUNTED PRICE
+                rating={4.5}
+                reviews={120}
+                is_liked={false}
+                colors={["#000000", "#FFD700"]}
+             />
             </div>
 
             {/* PAGINATION */}

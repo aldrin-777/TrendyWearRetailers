@@ -18,6 +18,8 @@ export default function OrderHistory() {
     {
       id: "ORD-99281",
       date: "Oct 12, 2025",
+      dateShipped: "Oct 13, 2025",
+      dateDelivered: "Oct 15, 2025",
       status: "Delivered",
       total: 2000.00,
       items: [
@@ -28,6 +30,8 @@ export default function OrderHistory() {
     {
       id: "ORD-88273",
       date: "Sept 28, 2025",
+      dateShipped: "Sept 30, 2025",
+      dateDelivered: null, // Still in transit
       status: "Shipped",
       total: 1000.00,
       items: [
@@ -48,7 +52,7 @@ export default function OrderHistory() {
     <div className="min-h-screen bg-[#F8F9FB] flex flex-col items-center">
       <div className="w-full max-w-7xl px-4 sm:px-6 md:px-8 py-10">
         
-        {/* HEADER SECTION - Matched to Cart */}
+        {/* HEADER SECTION */}
         <div className="mb-6">
           <Breadcrumb
             items={[
@@ -65,7 +69,9 @@ export default function OrderHistory() {
             <div key={order.id} className="bg-white rounded-[10px] overflow-hidden shadow-sm border border-gray-300">
               
               {/* Order Top Bar */}
-              <div className="bg-[#E5E4E4]/60 px-4 sm:px-8 py-4 sm:py-6 flex flex-col sm:flex-row sm:flex-wrap justify-between items-start sm:items-center gap-4 sm:gap-6 border-b border-gray-300">
+              <div className="bg-[#E5E4E4]/60 px-4 sm:px-8 py-4 sm:py-6 flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-gray-300">
+                
+                {/* Static Order Info (Left Side) */}
                 <div className="flex flex-col sm:flex-row gap-6 sm:gap-12 w-full sm:w-auto">
                   <div>
                     <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.2em] text-gray-500 font-black">Order Placed</p>
@@ -81,10 +87,26 @@ export default function OrderHistory() {
                   </div>
                 </div>
                 
-                <div className={`flex items-center gap-2 px-3 sm:px-5 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-black uppercase tracking-widest ${getStatusColor(order.status)} border border-current/10 mt-2 sm:mt-0`}>
-                  {order.status === 'Delivered' ? <MdCheckCircle size={16} className="sm:text-[18px]" /> : <MdLocalShipping size={16} className="sm:text-[18px]" />}
-                  {order.status}
-                </div>
+                {/* Logistics & Status (Right Side) */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 w-full sm:w-auto mt-4 sm:mt-0">
+                  
+                  {/* The Timeline Dates (Moved to the left) */}
+                  <div className="flex flex-col items-start sm:items-end text-[13px] text-gray-500 font-medium">
+                    {order.dateShipped && (
+                      <p>Shipped: <span className="text-blue-600">{order.dateShipped}</span></p>
+                    )}
+                    {order.dateDelivered && (
+                      <p>Delivered: <span className="text-green-600">{order.dateDelivered}</span></p>
+                    )}
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className={`inline-flex items-center gap-2 px-3 sm:px-5 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-black uppercase tracking-widest ${getStatusColor(order.status)} border border-current/10`}>
+                    {order.status === 'Delivered' ? <MdCheckCircle size={16} className="sm:text-[18px]" /> : <MdLocalShipping size={16} className="sm:text-[18px]" />}
+                    {order.status}
+                  </div>
+                </div>    
+
               </div>
 
               {/* Items List */}
