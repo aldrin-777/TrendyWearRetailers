@@ -13,7 +13,7 @@ const BUCKET_NAME = "images";
 export default function Page() {
   const [selectedSize, setSelectedSize] = useState("XS");
   const [activeCategory, setActiveCategory] = useState();
-  const [searchQuery, setSearchQuery] = useState<string|null>();
+  const [searchQuery, setSearchQuery] = useState("");
   const [activePage, setActivePage] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,20 +55,12 @@ export default function Page() {
   const categories = ["Men","Women","Tops", "Bottoms", "Shirt", "Dress"];
 
   useEffect(() => {
-    fetchProducts(searchParams.get('search'),searchParams.get('tags'))
+    setLoading(true);
+    fetchProducts(searchQuery, activeCategory)
       .then(setProducts)
-      .catch((err) => console.error("Error fetching products:", err))
+      .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(()=>{
-    if (activeCategory){
-      fetchProducts(searchParams.get('search'),activeCategory)
-      .then(setProducts)
-      .catch((err) => console.error("Error fetching products:", err))
-      .finally(() => setLoading(false));
-    }
-  },[activeCategory])
+  }, [activeCategory, searchQuery]); 
 
   return (
     <div className="min-h-screen bg-[#F8F9FB]">
