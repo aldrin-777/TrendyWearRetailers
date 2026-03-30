@@ -14,7 +14,6 @@ import { fetchShoppingCart } from "@/app/(site)/lib/fetchShoppingCart";
 
 const BUCKET_NAME = "images";
 
-// ---- Types ----
 type Product = {
     id: number;
     name: string;
@@ -38,24 +37,17 @@ type Review = {
     date: string;
     likes: number;
     rating: number;
-    isOwn: boolean; // ✅ tracks if this review belongs to current user
+    isOwn: boolean;
 };
 
-// ---- Star Rating Display ----
 function StarDisplay({ rating, size = "md" }: { rating: number; size?: "sm" | "md" | "lg" }) {
     const sizeClass = size === "sm" ? "w-3.5 h-3.5" : size === "lg" ? "w-7 h-7" : "w-5 h-5";
     return (
         <div className="flex gap-0.5">
             {[1, 2, 3, 4, 5].map((star) => (
-                <svg
-                    key={star}
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
+                <svg key={star} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                     fill={star <= Math.round(rating) ? "#F59E0B" : "none"}
-                    stroke="#F59E0B"
-                    strokeWidth="1.5"
-                    className={sizeClass}
-                >
+                    stroke="#F59E0B" strokeWidth="1.5" className={sizeClass}>
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                 </svg>
             ))}
@@ -63,28 +55,19 @@ function StarDisplay({ rating, size = "md" }: { rating: number; size?: "sm" | "m
     );
 }
 
-// ---- Interactive Star Picker ----
 function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
     const [hovered, setHovered] = useState(0);
     return (
         <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                    key={star}
-                    type="button"
+                <button key={star} type="button"
                     onMouseEnter={() => setHovered(star)}
                     onMouseLeave={() => setHovered(0)}
                     onClick={() => onChange(star)}
-                    className="focus:outline-none"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
+                    className="focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                         fill={(hovered || value) >= star ? "#F59E0B" : "none"}
-                        stroke="#F59E0B"
-                        strokeWidth="1.5"
-                        className="w-8 h-8 transition-colors"
-                    >
+                        stroke="#F59E0B" strokeWidth="1.5" className="w-8 h-8 transition-colors">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                     </svg>
                 </button>
@@ -93,13 +76,9 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
     );
 }
 
-// ---- Rating Summary Bar ----
 function RatingSummary({ reviews }: { reviews: Review[] }) {
     const total = reviews.length;
-    const avg = total > 0
-        ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10
-        : 0;
-
+    const avg = total > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10 : 0;
     const counts = [5, 4, 3, 2, 1].map((star) => ({
         star,
         count: reviews.filter((r) => Math.round(r.rating) === star).length,
@@ -108,7 +87,7 @@ function RatingSummary({ reviews }: { reviews: Review[] }) {
     return (
         <div className="flex gap-10 items-center mb-8 bg-white rounded-xl p-6 border border-[#D9D9D9]">
             <div className="flex flex-col items-center min-w-[80px]">
-                <span className="text-[48px] font-bold text-[#003049] leading-none">{avg}</span>
+                <span className="text-[48px] font-bold text-[#003049] leading-none">{avg > 0 ? avg : "—"}</span>
                 <StarDisplay rating={avg} size="md" />
                 <span className="text-sm text-[#6E6E6E] mt-1">{total} review{total !== 1 ? "s" : ""}</span>
             </div>
@@ -122,10 +101,7 @@ function RatingSummary({ reviews }: { reviews: Review[] }) {
                                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                             </svg>
                             <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-[#F59E0B] rounded-full transition-all duration-500"
-                                    style={{ width: `${pct}%` }}
-                                />
+                                <div className="h-full bg-[#F59E0B] rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                             </div>
                             <span className="w-6 text-right">{count}</span>
                         </div>
@@ -139,7 +115,6 @@ function RatingSummary({ reviews }: { reviews: Review[] }) {
 export default function ProductPage() {
     const params = useParams();
     const id = Number(params.id);
-
     const { setCartItems } = useCart();
 
     const [product, setProduct] = useState<Product | null>(null);
@@ -149,7 +124,6 @@ export default function ProductPage() {
     const [showModal, setShowModal] = useState(false);
     const [modalMessage, setModalMessage] = useState("");
 
-    // ---- Write review state ----
     const [reviewText, setReviewText] = useState("");
     const [reviewRating, setReviewRating] = useState(0);
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
@@ -157,7 +131,6 @@ export default function ProductPage() {
     const [hasReviewed, setHasReviewed] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-    // ---- Edit review state ----
     const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
     const [editText, setEditText] = useState("");
     const [editRating, setEditRating] = useState(0);
@@ -167,8 +140,6 @@ export default function ProductPage() {
     useEffect(() => {
         async function fetchData() {
             const supabase = createClient();
-
-            // ✅ Use getUser() to avoid navigator lock timeout
             const { data: { user } } = await supabase.auth.getUser();
             const user_id = user?.id ?? null;
             setCurrentUserId(user_id);
@@ -177,27 +148,18 @@ export default function ProductPage() {
                 .from("items")
                 .select("id, name, image_id, description, tags");
 
-            if (error || !items) {
-                console.error("Error fetching items:", error);
-                setLoading(false);
-                return;
-            }
+            if (error || !items) { setLoading(false); return; }
 
             const itemIds = items.map((i) => i.id);
 
             const { data: prices } = await supabase
-                .from("prices")
-                .select("item_id, price")
-                .in("item_id", itemIds);
+                .from("prices").select("item_id, price").in("item_id", itemIds);
 
             const priceMap: Record<number, { price: number; oldPrice?: number }> = {};
             if (prices) {
                 for (const p of prices) {
                     if (!(p.item_id in priceMap)) {
-                        priceMap[p.item_id] = {
-                            price: p.price ?? 0,
-                            oldPrice: (p as any).old_price,
-                        };
+                        priceMap[p.item_id] = { price: p.price ?? 0, oldPrice: (p as any).old_price };
                     }
                 }
             }
@@ -205,19 +167,13 @@ export default function ProductPage() {
             const wishlistSet = new Set<number>();
             if (user_id) {
                 const { data: wishlisted } = await supabase
-                    .from("wishlist")
-                    .select("id, item_id")
-                    .eq("user_id", user_id)
-                    .in("item_id", itemIds);
-                if (wishlisted) {
-                    for (const w of wishlisted) wishlistSet.add(w.item_id);
-                }
+                    .from("wishlist").select("id, item_id")
+                    .eq("user_id", user_id).in("item_id", itemIds);
+                if (wishlisted) for (const w of wishlisted) wishlistSet.add(w.item_id);
             }
 
             const { data: allReviews } = await supabase
-                .from("reviews")
-                .select("item_id, rating")
-                .in("item_id", itemIds);
+                .from("reviews").select("item_id, rating").in("item_id", itemIds);
 
             const ratingMap: Record<number, { sum: number; count: number }> = {};
             if (allReviews) {
@@ -230,19 +186,17 @@ export default function ProductPage() {
 
             const mapped: Product[] = items.map((item) => {
                 const imageUrls = (item.image_id ?? []).map(
-                    (imgId: string) =>
-                        supabase.storage.from(BUCKET_NAME).getPublicUrl(imgId).data.publicUrl
+                    (imgId: string) => supabase.storage.from(BUCKET_NAME).getPublicUrl(imgId).data.publicUrl
                 );
                 const priceObj = priceMap[item.id] ?? { price: 0 };
                 const rd = ratingMap[item.id];
-                const avgRating = rd ? Math.round((rd.sum / rd.count) * 10) / 10 : 0;
                 return {
                     id: item.id,
                     name: item.name ?? "Unnamed",
                     images: imageUrls.length > 0 ? imageUrls : ["/placeholder.jpg"],
                     price: priceObj.price,
                     oldPrice: priceObj.oldPrice,
-                    rating: avgRating,
+                    rating: rd ? Math.round((rd.sum / rd.count) * 10) / 10 : 0,
                     reviews: rd?.count ?? 0,
                     colors: [],
                     is_liked: wishlistSet.has(item.id),
@@ -252,7 +206,6 @@ export default function ProductPage() {
             });
 
             setProducts(mapped);
-
             const current = mapped.find((p) => p.id === id) ?? null;
             setProduct(current);
 
@@ -262,9 +215,7 @@ export default function ProductPage() {
                     .select("id, user_id, item_id, rating, text, created_at")
                     .eq("item_id", id);
 
-                if (user_id && reviewRows) {
-                    setHasReviewed(reviewRows.some((r) => r.user_id === user_id));
-                }
+                if (user_id && reviewRows) setHasReviewed(reviewRows.some((r) => r.user_id === user_id));
 
                 const userIds = [...new Set((reviewRows ?? []).map((r) => r.user_id))];
                 const { data: users } = userIds.length > 0
@@ -272,34 +223,26 @@ export default function ProductPage() {
                     : { data: [] };
 
                 const usernameMap: Record<string, string> = {};
-                if (users) {
-                    for (const u of users) usernameMap[u.id] = u.username;
-                }
+                if (users) for (const u of users) usernameMap[u.id] = u.username;
 
-                const mappedReviews: Review[] = (reviewRows ?? []).map((r) => ({
+                setProductReviews((reviewRows ?? []).map((r) => ({
                     id: r.id,
                     productId: r.item_id,
                     name: usernameMap[r.user_id] ?? "Anonymous",
                     avatar: "/avatar.jpg",
                     comment: r.text ?? "",
-                    date: new Date(r.created_at).toLocaleDateString("en-US", {
-                        year: "numeric", month: "short", day: "numeric",
-                    }),
+                    date: new Date(r.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
                     likes: 0,
                     rating: r.rating ?? 0,
-                    isOwn: r.user_id === user_id, // ✅ mark own review
-                }));
-
-                setProductReviews(mappedReviews);
+                    isOwn: r.user_id === user_id,
+                })));
             }
 
             setLoading(false);
         }
-
         fetchData();
     }, [id]);
 
-    // ---- Submit new review ----
     async function handleSubmitReview() {
         setReviewError("");
         if (reviewRating === 0) { setReviewError("Please select a star rating."); return; }
@@ -308,36 +251,20 @@ export default function ProductPage() {
 
         setReviewSubmitting(true);
         const supabase = createClient();
-
         const { error } = await supabase.from("reviews").insert({
-            user_id: currentUserId,
-            item_id: id,
-            rating: reviewRating,
-            text: reviewText.trim(),
+            user_id: currentUserId, item_id: id, rating: reviewRating, text: reviewText.trim(),
         });
 
-        if (error) {
-            setReviewError("Failed to submit review. Please try again.");
-            setReviewSubmitting(false);
-            return;
-        }
+        if (error) { setReviewError("Failed to submit review. Please try again."); setReviewSubmitting(false); return; }
 
-        const { data: userData } = await supabase
-            .from("users")
-            .select("username")
-            .eq("id", currentUserId)
-            .single();
+        const { data: userData } = await supabase.from("users").select("username").eq("id", currentUserId).single();
 
         const newReview: Review = {
-            id: Date.now(),
-            productId: id,
-            name: userData?.username ?? "You",
-            avatar: "/avatar.jpg",
+            id: Date.now(), productId: id,
+            name: userData?.username ?? "You", avatar: "/avatar.jpg",
             comment: reviewText.trim(),
             date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
-            likes: 0,
-            rating: reviewRating,
-            isOwn: true,
+            likes: 0, rating: reviewRating, isOwn: true,
         };
 
         setProductReviews((prev) => [newReview, ...prev]);
@@ -347,16 +274,13 @@ export default function ProductPage() {
         setReviewSubmitting(false);
         setModalMessage("Review submitted!");
         setShowModal(true);
-
         setProduct((prev) => {
             if (!prev) return prev;
             const newCount = prev.reviews + 1;
-            const newAvg = Math.round(((prev.rating * prev.reviews + reviewRating) / newCount) * 10) / 10;
-            return { ...prev, rating: newAvg, reviews: newCount };
+            return { ...prev, rating: Math.round(((prev.rating * prev.reviews + reviewRating) / newCount) * 10) / 10, reviews: newCount };
         });
     }
 
-    // ---- Start editing ----
     function startEdit(review: Review) {
         setEditingReviewId(review.id);
         setEditText(review.comment);
@@ -371,7 +295,6 @@ export default function ProductPage() {
         setEditError("");
     }
 
-    // ---- Save edited review ----
     async function handleSaveEdit(reviewId: number) {
         setEditError("");
         if (editRating === 0) { setEditError("Please select a star rating."); return; }
@@ -379,37 +302,22 @@ export default function ProductPage() {
 
         setEditSubmitting(true);
         const supabase = createClient();
-
-        const { error } = await supabase
-            .from("reviews")
+        const { error } = await supabase.from("reviews")
             .update({ rating: editRating, text: editText.trim() })
-            .eq("id", reviewId)
-            .eq("user_id", currentUserId); // safety: only own review
+            .eq("id", reviewId).eq("user_id", currentUserId);
 
-        if (error) {
-            setEditError("Failed to update review. Please try again.");
-            setEditSubmitting(false);
-            return;
-        }
+        if (error) { setEditError("Failed to update review. Please try again."); setEditSubmitting(false); return; }
 
         setProductReviews((prev) =>
-            prev.map((r) =>
-                r.id === reviewId ? { ...r, comment: editText.trim(), rating: editRating } : r
-            )
+            prev.map((r) => r.id === reviewId ? { ...r, comment: editText.trim(), rating: editRating } : r)
         );
-
-        // Recalculate avg in product header
         setProduct((prev) => {
             if (!prev) return prev;
-            const updated = productReviews.map((r) =>
-                r.id === reviewId ? { ...r, rating: editRating } : r
-            );
+            const updated = productReviews.map((r) => r.id === reviewId ? { ...r, rating: editRating } : r);
             const total = updated.length;
             const sum = updated.reduce((s, r) => s + r.rating, 0);
-            const newAvg = total > 0 ? Math.round((sum / total) * 10) / 10 : 0;
-            return { ...prev, rating: newAvg };
+            return { ...prev, rating: total > 0 ? Math.round((sum / total) * 10) / 10 : 0 };
         });
-
         setEditSubmitting(false);
         setEditingReviewId(null);
         setModalMessage("Review updated!");
@@ -420,9 +328,7 @@ export default function ProductPage() {
     const [likedReviews, setLikedReviews] = useState<number[]>([]);
 
     const toggleLike = (reviewId: number) => {
-        setLikedReviews((prev) =>
-            prev.includes(reviewId) ? prev.filter((r) => r !== reviewId) : [...prev, reviewId]
-        );
+        setLikedReviews((prev) => prev.includes(reviewId) ? prev.filter((r) => r !== reviewId) : [...prev, reviewId]);
     };
 
     const sortedReviews = [...productReviews].sort((a, b) => {
@@ -439,25 +345,12 @@ export default function ProductPage() {
     const [selectedSize, setSelectedSize] = useState("XS");
     const [selectedColor, setSelectedColor] = useState("#000");
 
-    const [showMoreReviews, setShowMoreReviews] = useState(false);
-    const reviewsRef = useRef<HTMLDivElement>(null);
-    const [reviewsHeight, setReviewsHeight] = useState(0);
-    const collapsedHeightReviews = 390;
-
-    useEffect(() => {
-        if (reviewsRef.current) {
-            setReviewsHeight(reviewsRef.current.scrollHeight);
-        }
-    }, [sortedReviews]);
-
     const contentRef = useRef<HTMLDivElement>(null);
     const [contentHeight, setContentHeight] = useState(0);
     const collapsedHeight = 220;
 
     useEffect(() => {
-        if (contentRef.current) {
-            setContentHeight(contentRef.current.scrollHeight);
-        }
+        if (contentRef.current) setContentHeight(contentRef.current.scrollHeight);
     }, [product?.description, product?.features]);
 
     if (loading)
@@ -483,20 +376,14 @@ export default function ProductPage() {
             <div className="bg-[#F8F9FB] min-h-screen">
                 <div className="max-w-[1440px] mx-auto px-10 py-10">
                     {showModal && (
-                        <TopModal
-                            message={modalMessage}
-                            type="success"
-                            onClose={() => setShowModal(false)}
-                        />
+                        <TopModal message={modalMessage} type="success" onClose={() => setShowModal(false)} />
                     )}
 
-                    <Breadcrumb
-                        items={[
-                            { label: "Home", href: "/" },
-                            { label: "Product", href: "/products-page" },
-                            { label: product.name },
-                        ]}
-                    />
+                    <Breadcrumb items={[
+                        { label: "Home", href: "/" },
+                        { label: "Product", href: "/products-page" },
+                        { label: product.name },
+                    ]} />
 
                     <h2 className="text-[#C1121F] text-[36px] font-semibold mb-6">Item Detail</h2>
 
@@ -508,7 +395,7 @@ export default function ProductPage() {
                                 <Image src={product.images[0]} alt={product.name} fill className="object-cover" />
                             </div>
                             <div className="flex gap-4 mt-4">
-                                {product.images.slice(1, 4).map((img: string, i: number) => (
+                                {product.images.slice(1, 4).map((img, i) => (
                                     <div key={i} className="relative flex-1 aspect-square rounded-xl overflow-hidden">
                                         <Image src={img} alt={`${product.name} thumbnail ${i + 1}`} fill className="object-cover" />
                                     </div>
@@ -526,9 +413,7 @@ export default function ProductPage() {
                                     {product.rating > 0 ? product.rating.toFixed(1) : "No ratings yet"}
                                 </span>
                                 {product.reviews > 0 && (
-                                    <span className="text-[16px] text-gray-500">
-                                        ({product.reviews} review{product.reviews !== 1 ? "s" : ""})
-                                    </span>
+                                    <span className="text-[16px] text-gray-500">({product.reviews} review{product.reviews !== 1 ? "s" : ""})</span>
                                 )}
                             </div>
 
@@ -536,12 +421,9 @@ export default function ProductPage() {
                                 <p className="text-[24px] font-medium mb-2">Color</p>
                                 <div className="flex gap-2">
                                     {product.colors.map((color) => (
-                                        <button
-                                            key={color}
-                                            onClick={() => setSelectedColor(color)}
+                                        <button key={color} onClick={() => setSelectedColor(color)}
                                             className={`w-6 h-6 rounded-full border-2 ${selectedColor === color ? "border-black" : "border-transparent"}`}
-                                            style={{ backgroundColor: color }}
-                                        />
+                                            style={{ backgroundColor: color }} />
                                     ))}
                                 </div>
                             </div>
@@ -550,11 +432,8 @@ export default function ProductPage() {
                                 <p className="text-[24px] font-medium mb-2">Size</p>
                                 <div className="flex gap-2">
                                     {["XS", "S", "M", "L", "XL"].map((size) => (
-                                        <button
-                                            key={size}
-                                            onClick={() => setSelectedSize(size)}
-                                            className={`h-[54px] w-[54px] rounded-full text-xs border ${selectedSize === size ? "bg-[#C1121F] text-white border-[#C1121F]" : "bg-gray-200 border-gray-200"}`}
-                                        >
+                                        <button key={size} onClick={() => setSelectedSize(size)}
+                                            className={`h-[54px] w-[54px] rounded-full text-xs border ${selectedSize === size ? "bg-[#C1121F] text-white border-[#C1121F]" : "bg-gray-200 border-gray-200"}`}>
                                             {size}
                                         </button>
                                     ))}
@@ -591,32 +470,25 @@ export default function ProductPage() {
                                         }
                                         setModalMessage(`${product?.name} added to cart!`);
                                         setShowModal(true);
-                                    }}
-                                >
+                                    }}>
                                     Add to Cart
                                 </button>
-                                <button className="w-full py-3 rounded-full bg-[#003049] text-[#F5F3F3] font-semibold">
-                                    Buy Now
-                                </button>
+                                <button className="w-full py-3 rounded-full bg-[#003049] text-[#F5F3F3] font-semibold">Buy Now</button>
                             </div>
                         </div>
                     </div>
 
                     {/* TABS */}
                     <div className="mt-16 flex relative text-[24px] font-medium border-b border-gray-300">
-                        <button
-                            onClick={() => setActiveTab("details")}
-                            className={`flex-1 pb-3 relative text-left ${activeTab === "details" ? "text-[#003049]" : "text-[#6E6E6E]"}`}
-                        >
+                        <button onClick={() => setActiveTab("details")}
+                            className={`flex-1 pb-3 relative text-left ${activeTab === "details" ? "text-[#003049]" : "text-[#6E6E6E]"}`}>
                             The Details
                             {activeTab === "details" && (
                                 <span className="absolute bottom-0 left-0 h-[3px] bg-[#C1121F]" style={{ width: "calc(100% - 5px)" }} />
                             )}
                         </button>
-                        <button
-                            onClick={() => setActiveTab("reviews")}
-                            className={`flex-1 pb-3 relative text-left ${activeTab === "reviews" ? "text-[#003049]" : "text-[#6E6E6E]"}`}
-                        >
+                        <button onClick={() => setActiveTab("reviews")}
+                            className={`flex-1 pb-3 relative text-left ${activeTab === "reviews" ? "text-[#003049]" : "text-[#6E6E6E]"}`}>
                             Ratings & Reviews
                             <span className="ml-2 bg-[#D9D9D9] text-[#003049] font-semibold text-[18px] px-2.5 py-2 rounded-[5px]">
                                 {productReviews.length}
@@ -628,7 +500,7 @@ export default function ProductPage() {
                     </div>
 
                     {/* TAB CONTENT */}
-                    <div className="mt-10 max-w-8xl">
+                    <div className="mt-10">
 
                         {/* ---- DETAILS TAB ---- */}
                         {activeTab === "details" && (
@@ -650,15 +522,13 @@ export default function ProductPage() {
                                             </div>
                                         )}
                                         {!showMore && contentHeight > collapsedHeight && (
-                                            <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-gray to-transparent" />
+                                            <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-[#E6E6E6] to-transparent" />
                                         )}
                                     </div>
                                     {contentHeight > collapsedHeight && (
                                         <div className="flex justify-center">
-                                            <button
-                                                onClick={() => setShowMore(!showMore)}
-                                                className="mt-6 flex items-center gap-2 text-[16px] text-[#535353] hover:text-[#003049] transition-colors"
-                                            >
+                                            <button onClick={() => setShowMore(!showMore)}
+                                                className="mt-6 flex items-center gap-2 text-[16px] text-[#535353] hover:text-[#003049] transition-colors">
                                                 {showMore ? "Show Less" : "Show More"}
                                                 <ChevronDown className={`transition-transform duration-300 ${showMore ? "rotate-180" : ""}`} />
                                             </button>
@@ -690,20 +560,14 @@ export default function ProductPage() {
                                             </div>
                                             <div className="mb-4">
                                                 <p className="text-[15px] text-[#535353] mb-2">Your Review</p>
-                                                <textarea
-                                                    value={reviewText}
-                                                    onChange={(e) => setReviewText(e.target.value)}
+                                                <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)}
                                                     placeholder="Share your thoughts about this product..."
                                                     rows={4}
-                                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-[15px] text-[#535353] focus:outline-none focus:ring-1 focus:ring-[#C1121F] resize-none"
-                                                />
+                                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-[15px] text-[#535353] focus:outline-none focus:ring-1 focus:ring-[#C1121F] resize-none" />
                                             </div>
                                             {reviewError && <p className="text-red-500 text-[14px] mb-3">{reviewError}</p>}
-                                            <button
-                                                onClick={handleSubmitReview}
-                                                disabled={reviewSubmitting}
-                                                className="px-6 py-2.5 rounded-full bg-[#003049] text-white font-semibold text-[15px] hover:bg-[#003049]/90 disabled:opacity-50 transition"
-                                            >
+                                            <button onClick={handleSubmitReview} disabled={reviewSubmitting}
+                                                className="px-6 py-2.5 rounded-full bg-[#003049] text-white font-semibold text-[15px] hover:bg-[#003049]/90 disabled:opacity-50 transition">
                                                 {reviewSubmitting ? "Submitting..." : "Submit Review"}
                                             </button>
                                         </div>
@@ -714,144 +578,122 @@ export default function ProductPage() {
                                     </div>
                                 )}
 
-                                {/* SORT */}
-                                <div className="flex items-center gap-3 mb-6">
-                                    <span className="text-[#535353] text-[16px]">Sort By</span>
-                                    <select
-                                        value={sortBy}
-                                        onChange={(e) => setSortBy(e.target.value)}
-                                        className="border border-gray-300 rounded-md px-3 py-1 text-sm bg-white"
-                                    >
-                                        <option>Newest</option>
-                                        <option>Oldest</option>
-                                        <option>Most Liked</option>
-                                        <option>Highest Rated</option>
-                                        <option>Lowest Rated</option>
-                                    </select>
+                                {/* SORT + COUNT */}
+                                <div className="flex items-center justify-between mb-4">
+                                    <p className="text-[15px] text-[#6E6E6E]">
+                                        {sortedReviews.length} review{sortedReviews.length !== 1 ? "s" : ""}
+                                    </p>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-[#535353] text-[15px]">Sort by</span>
+                                        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+                                            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#C1121F]">
+                                            <option>Newest</option>
+                                            <option>Oldest</option>
+                                            <option>Most Liked</option>
+                                            <option>Highest Rated</option>
+                                            <option>Lowest Rated</option>
+                                        </select>
+                                    </div>
                                 </div>
 
-                                {/* REVIEWS LIST */}
-                                <div
-                                    ref={reviewsRef}
-                                    className="bg-[#E6E6E6] rounded-[11px] p-8 shadow-sm border border-[#D9D9D9] space-y-8 overflow-hidden transition-all duration-500 ease-in-out relative"
-                                    style={{
-                                        maxHeight: showMoreReviews ? reviewsHeight + "px" : collapsedHeightReviews + "px",
-                                    }}
-                                >
-                                    {sortedReviews.map((review, index) => {
-                                        const isLiked = likedReviews.includes(review.id);
-                                        const isEditing = editingReviewId === review.id;
+                                {/* ✅ SCROLLABLE REVIEWS LIST */}
+                                <div className="bg-[#E6E6E6] rounded-[11px] border border-[#D9D9D9] shadow-sm overflow-hidden">
+                                    {sortedReviews.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#D9D9D9" strokeWidth="1.5" className="w-12 h-12 mb-3">
+                                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                            </svg>
+                                            <p className="text-gray-400 text-[16px]">No reviews yet.</p>
+                                            <p className="text-gray-400 text-[14px] mt-1">Be the first to share your thoughts!</p>
+                                        </div>
+                                    ) : (
+                                        /* scrollable area — shows ~3 reviews then scrolls */
+                                        <div className="overflow-y-auto max-h-[560px] divide-y divide-gray-300
+                                            [&::-webkit-scrollbar]:w-1.5
+                                            [&::-webkit-scrollbar-track]:bg-transparent
+                                            [&::-webkit-scrollbar-thumb]:bg-gray-300
+                                            [&::-webkit-scrollbar-thumb]:rounded-full
+                                            [&::-webkit-scrollbar-thumb:hover]:bg-gray-400">
+                                            {sortedReviews.map((review) => {
+                                                const isLiked = likedReviews.includes(review.id);
+                                                const isEditing = editingReviewId === review.id;
 
-                                        return (
-                                            <div key={review.id}>
-                                                <div className="flex justify-between items-start gap-4">
-                                                    <div className="flex gap-4 flex-1">
-                                                        <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-300 flex-shrink-0">
-                                                            <Image src={review.avatar} alt={review.name} fill className="object-cover" />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            {/* Name + "You" badge */}
-                                                            <div className="flex items-center gap-2">
-                                                                <h4 className="font-semibold text-[#003049] text-[18px]">{review.name}</h4>
-                                                                {review.isOwn && (
-                                                                    <span className="text-[11px] bg-[#003049] text-white px-2 py-0.5 rounded-full">You</span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* ---- EDIT MODE ---- */}
-                                                            {isEditing ? (
-                                                                <div className="mt-3 bg-white border border-[#D9D9D9] rounded-xl p-4">
-                                                                    <p className="text-[14px] text-[#535353] mb-2">Edit Rating</p>
-                                                                    <StarPicker value={editRating} onChange={setEditRating} />
-                                                                    <p className="text-[14px] text-[#535353] mt-3 mb-2">Edit Review</p>
-                                                                    <textarea
-                                                                        value={editText}
-                                                                        onChange={(e) => setEditText(e.target.value)}
-                                                                        rows={3}
-                                                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-[14px] text-[#535353] focus:outline-none focus:ring-1 focus:ring-[#C1121F] resize-none"
-                                                                    />
-                                                                    {editError && <p className="text-red-500 text-[13px] mt-1">{editError}</p>}
-                                                                    <div className="flex gap-2 mt-3">
-                                                                        <button
-                                                                            onClick={() => handleSaveEdit(review.id)}
-                                                                            disabled={editSubmitting}
-                                                                            className="px-4 py-1.5 rounded-full bg-[#003049] text-white text-[13px] font-semibold disabled:opacity-50"
-                                                                        >
-                                                                            {editSubmitting ? "Saving..." : "Save"}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={cancelEdit}
-                                                                            className="px-4 py-1.5 rounded-full border border-gray-300 text-[#535353] text-[13px] font-semibold hover:bg-gray-100"
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
-                                                                    </div>
+                                                return (
+                                                    <div key={review.id} className="p-6 hover:bg-white/40 transition-colors">
+                                                        <div className="flex justify-between items-start gap-4">
+                                                            <div className="flex gap-4 flex-1 min-w-0">
+                                                                {/* Avatar */}
+                                                                <div className="relative w-11 h-11 rounded-full overflow-hidden bg-gray-300 flex-shrink-0">
+                                                                    <Image src={review.avatar} alt={review.name} fill className="object-cover" />
                                                                 </div>
-                                                            ) : (
-                                                                /* ---- VIEW MODE ---- */
-                                                                <>
-                                                                    <div className="mt-0.5 mb-2">
-                                                                        <StarDisplay rating={review.rating} size="sm" />
-                                                                    </div>
-                                                                    <p className="text-[#535353] text-[16px] leading-6 max-w-2xl">{review.comment}</p>
 
-                                                                    <div className="flex items-center gap-4 mt-4">
-                                                                        <button
-                                                                            onClick={() => toggleLike(review.id)}
-                                                                            className="flex items-center gap-2 font-bold text-[16px] text-[#535353] hover:text-[#C1121F] transition"
-                                                                        >
-                                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={isLiked ? "#C1121F" : "none"} stroke="#C1121F" strokeWidth="2" className="w-5 h-5">
-                                                                                <path d="M20.8 4.6c-1.5-1.6-4-1.6-5.5 0l-.8.8-.8-.8c-1.5-1.6-4-1.6-5.5 0-1.6 1.6-1.6 4.1 0 5.7l6.3 6.5 6.3-6.5c1.6-1.6 1.6-4.1 0-5.7z" />
-                                                                            </svg>
-                                                                            <span>{isLiked ? "Liked" : "Like"}</span>
-                                                                            <span className="text-[15px] text-[#6E6E6E]">{isLiked ? review.likes + 1 : review.likes} Likes</span>
-                                                                        </button>
-
-                                                                        {/* ✅ Edit button only on own review */}
+                                                                <div className="flex-1 min-w-0">
+                                                                    {/* Name + badge */}
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <h4 className="font-semibold text-[#003049] text-[16px]">{review.name}</h4>
                                                                         {review.isOwn && (
-                                                                            <button
-                                                                                onClick={() => startEdit(review)}
-                                                                                className="flex items-center gap-1 text-[14px] text-[#6E6E6E] hover:text-[#003049] transition"
-                                                                            >
-                                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                                                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                                                </svg>
-                                                                                Edit
-                                                                            </button>
+                                                                            <span className="text-[11px] bg-[#003049] text-white px-2 py-0.5 rounded-full leading-none">You</span>
                                                                         )}
                                                                     </div>
-                                                                </>
-                                                            )}
+
+                                                                    {/* EDIT MODE */}
+                                                                    {isEditing ? (
+                                                                        <div className="mt-2 bg-white border border-[#D9D9D9] rounded-xl p-4">
+                                                                            <p className="text-[13px] text-[#535353] mb-2 font-medium">Edit Rating</p>
+                                                                            <StarPicker value={editRating} onChange={setEditRating} />
+                                                                            <p className="text-[13px] text-[#535353] mt-3 mb-2 font-medium">Edit Review</p>
+                                                                            <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
+                                                                                rows={3}
+                                                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-[14px] text-[#535353] focus:outline-none focus:ring-1 focus:ring-[#C1121F] resize-none" />
+                                                                            {editError && <p className="text-red-500 text-[13px] mt-1">{editError}</p>}
+                                                                            <div className="flex gap-2 mt-3">
+                                                                                <button onClick={() => handleSaveEdit(review.id)} disabled={editSubmitting}
+                                                                                    className="px-4 py-1.5 rounded-full bg-[#003049] text-white text-[13px] font-semibold disabled:opacity-50 hover:bg-[#003049]/90 transition">
+                                                                                    {editSubmitting ? "Saving..." : "Save changes"}
+                                                                                </button>
+                                                                                <button onClick={cancelEdit}
+                                                                                    className="px-4 py-1.5 rounded-full border border-gray-300 text-[#535353] text-[13px] font-semibold hover:bg-gray-100 transition">
+                                                                                    Cancel
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        /* VIEW MODE */
+                                                                        <>
+                                                                            <StarDisplay rating={review.rating} size="sm" />
+                                                                            <p className="text-[#535353] text-[15px] leading-6 mt-2">{review.comment}</p>
+                                                                            <div className="flex items-center gap-4 mt-3">
+                                                                                <button onClick={() => toggleLike(review.id)}
+                                                                                    className="flex items-center gap-1.5 text-[14px] text-[#535353] hover:text-[#C1121F] transition">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                                                                        fill={isLiked ? "#C1121F" : "none"} stroke="#C1121F" strokeWidth="2" className="w-4 h-4">
+                                                                                        <path d="M20.8 4.6c-1.5-1.6-4-1.6-5.5 0l-.8.8-.8-.8c-1.5-1.6-4-1.6-5.5 0-1.6 1.6-1.6 4.1 0 5.7l6.3 6.5 6.3-6.5c1.6-1.6 1.6-4.1 0-5.7z" />
+                                                                                    </svg>
+                                                                                    <span>{isLiked ? review.likes + 1 : review.likes} {isLiked ? "Liked" : "Like"}</span>
+                                                                                </button>
+
+                                                                                {review.isOwn && (
+                                                                                    <button onClick={() => startEdit(review)}
+                                                                                        className="flex items-center gap-1 text-[13px] text-[#6E6E6E] hover:text-[#003049] transition">
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                                                                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                                                        </svg>
+                                                                                        Edit review
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Date */}
+                                                            <span className="text-[13px] text-[#6E6E6E] whitespace-nowrap flex-shrink-0">{review.date}</span>
                                                         </div>
                                                     </div>
-                                                    <span className="text-[16px] text-[#535353] whitespace-nowrap">{review.date}</span>
-                                                </div>
-
-                                                {index !== sortedReviews.length - 1 && (
-                                                    <div className="h-[1px] bg-gray-300 mt-8" />
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-
-                                    {sortedReviews.length === 0 && (
-                                        <p className="text-gray-500 text-center py-8">No reviews yet. Be the first to review!</p>
-                                    )}
-
-                                    {!showMoreReviews && reviewsHeight > collapsedHeightReviews && (
-                                        <div className="pointer-events-none absolute bottom-16 left-0 h-24 w-full bg-gradient-to-t from-gray to-transparent" />
-                                    )}
-
-                                    {reviewsHeight > collapsedHeightReviews && (
-                                        <div className="flex justify-center mt-6">
-                                            <button
-                                                onClick={() => setShowMoreReviews(!showMoreReviews)}
-                                                className="flex items-center gap-2 text-[16px] text-[#535353] hover:text-[#003049] transition-colors"
-                                            >
-                                                {showMoreReviews ? "Show Less" : "Show More"}
-                                                <ChevronDown className={`transition-transform duration-300 ${showMoreReviews ? "rotate-180" : ""}`} />
-                                            </button>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

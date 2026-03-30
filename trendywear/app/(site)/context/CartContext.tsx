@@ -35,23 +35,23 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Fetch cart on initial mount
     async function initializeCart() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-        // Only fetch cart if user is logged in
-        if (session?.user?.id) {
-          const cart = await fetchShoppingCart();
-          setCartItems(cart);
-        } else {
-          setCartItems([]);
-        }
-      } catch (err) {
-        console.error("Error initializing cart:", err);
-        setCartItems([]);
-      }
+    // Only fetch cart if user is logged in
+    if (user?.id) {
+      const cart = await fetchShoppingCart();
+      setCartItems(cart);
+    } else {
+      setCartItems([]);
     }
+  } catch (err) {
+    console.error("Error initializing cart:", err);
+    setCartItems([]);
+  }
+}
 
-    initializeCart();
+initializeCart();
 
     // Subscribe to auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
