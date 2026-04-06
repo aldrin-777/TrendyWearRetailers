@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import RevenueChart from "./components/RevenueChart";
 import {
   FiBox,
@@ -10,6 +10,7 @@ import {
   FiUsers,
   FiArrowLeft,
 } from "react-icons/fi";
+import { createClient } from "@/utils/supabase/client";
 
 type FilterMode = "last7days" | "month" | "year";
 type MetricType = "products" | "orders" | "revenue" | "growth";
@@ -53,191 +54,20 @@ type AnalyticsModeData = {
   growthBreakdown: { label: string; value: string; sub: string }[];
 };
 
+type FetchResult = {
+  current: AnalyticsModeData;
+  recentOrders: { id: string; time: string; amount: string }[];
+  topBuyers: TopBuyer[];
+  buyerCount: number;
+};
+
 const filterOptions: { label: string; value: FilterMode }[] = [
   { label: "Last 7 Days", value: "last7days" },
   { label: "Month-by-Month", value: "month" },
   { label: "Year-on-Year", value: "year" },
 ];
 
-const analyticsByMode: Record<FilterMode, AnalyticsModeData> = {
-  last7days: {
-    metrics: {
-      totalProducts: { value: "1,247", trend: "+12%", note: "vs previous 7 days" },
-      totalOrders: { value: "328", trend: "+8%", note: "vs previous 7 days" },
-      totalRevenue: { value: "₱485K", trend: "+24%", note: "vs previous 7 days" },
-      growthRate: { value: "15.2%", trend: "+3.5%", note: "weekly growth rate" },
-    },
-    chartTitle: "Sales Snapshot",
-    chartValue: "₱485K",
-    chartChange: "+24%",
-    chartCaption: "Performance in the last 7 days",
-    series: {
-      revenue: [36, 52, 44, 68, 60, 74, 84],
-      orders: [12, 20, 18, 30, 28, 35, 40],
-      products: [5, 8, 10, 15, 18, 20, 22],
-      growth: [2, 3, 4, 6, 5, 7, 8],
-    },
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    highlights: {
-      bestPeriod: "Saturday",
-      bestPeriodSub: "Highest sales day",
-      bestYear: "2025",
-      bestYearSub: "Strongest annual run",
-    },
-    productBreakdown: [
-      { name: "Button Down Shirt", count: 142 },
-      { name: "Notched Collar Shirt", count: 126 },
-      { name: "Graphic T-Shirt", count: 118 },
-      { name: "The Modern Polo", count: 94 },
-      { name: "Sleeveless Knit Top", count: 76 },
-      { name: "Wide-Leg Trousers", count: 64 },
-    ],
-    orderBreakdown: [
-      { label: "Completed Orders", value: "264", sub: "80.5% of all orders" },
-      { label: "Pending Orders", value: "38", sub: "Awaiting fulfillment" },
-      { label: "Cancelled Orders", value: "26", sub: "7.9% cancellation rate" },
-    ],
-    revenueBreakdown: [
-      { label: "Gross Revenue", value: "₱485K", sub: "Total collected this period" },
-      { label: "Average Order Value", value: "₱1,478", sub: "Per completed order" },
-      { label: "Best Revenue Day", value: "Saturday", sub: "Highest earnings day" },
-    ],
-    growthBreakdown: [
-      { label: "Growth Rate", value: "15.2%", sub: "Compared to previous 7 days" },
-      { label: "Fastest Growth Day", value: "Thursday", sub: "Biggest upward jump" },
-      { label: "Retention Lift", value: "+3.5%", sub: "Returning customer growth" },
-    ],
-  },
-  month: {
-    metrics: {
-      totalProducts: { value: "1,247", trend: "+9%", note: "vs previous month" },
-      totalOrders: { value: "1,964", trend: "+11%", note: "vs previous month" },
-      totalRevenue: { value: "₱2.1M", trend: "+18%", note: "vs previous month" },
-      growthRate: { value: "12.4%", trend: "+2.1%", note: "monthly growth rate" },
-    },
-    chartTitle: "Monthly Revenue",
-    chartValue: "₱2.1M",
-    chartChange: "+18%",
-    chartCaption: "Performance this month",
-    series: {
-      revenue: [28, 36, 46, 50, 58, 61, 67, 69, 72, 76, 82, 88],
-      orders: [110, 135, 158, 170, 184, 195, 210, 228, 240, 252, 266, 280],
-      products: [44, 52, 60, 68, 72, 79, 83, 87, 95, 102, 109, 116],
-      growth: [3, 4, 5, 6, 7, 8, 8, 9, 10, 11, 11, 12],
-    },
-    labels: ["W1", "W2", "W3", "W4"],
-    highlights: {
-      bestPeriod: "November",
-      bestPeriodSub: "Top performing month",
-      bestYear: "2025",
-      bestYearSub: "Best yearly revenue",
-    },
-    productBreakdown: [
-      { name: "Button Down Shirt", count: 428 },
-      { name: "Notched Collar Shirt", count: 392 },
-      { name: "Graphic T-Shirt", count: 364 },
-      { name: "The Modern Polo", count: 310 },
-      { name: "Sleeveless Knit Top", count: 228 },
-      { name: "Wide-Leg Trousers", count: 196 },
-    ],
-    orderBreakdown: [
-      { label: "Completed Orders", value: "1,642", sub: "83.6% fulfillment rate" },
-      { label: "Pending Orders", value: "201", sub: "Processing this month" },
-      { label: "Cancelled Orders", value: "121", sub: "6.1% cancellation rate" },
-    ],
-    revenueBreakdown: [
-      { label: "Gross Revenue", value: "₱2.1M", sub: "Total collected this month" },
-      { label: "Average Order Value", value: "₱1,284", sub: "Per completed order" },
-      { label: "Best Revenue Week", value: "Week 4", sub: "Strongest closing week" },
-    ],
-    growthBreakdown: [
-      { label: "Growth Rate", value: "12.4%", sub: "Compared to previous month" },
-      { label: "Strongest Week", value: "Week 4", sub: "Best growth momentum" },
-      { label: "Retention Lift", value: "+2.1%", sub: "Repeat buyer increase" },
-    ],
-  },
-  year: {
-    metrics: {
-      totalProducts: { value: "1,247", trend: "+14%", note: "vs previous year" },
-      totalOrders: { value: "18,420", trend: "+16%", note: "vs previous year" },
-      totalRevenue: { value: "₱18.7M", trend: "+27%", note: "vs previous year" },
-      growthRate: { value: "19.8%", trend: "+4.7%", note: "annual growth rate" },
-    },
-    chartTitle: "Yearly Revenue",
-    chartValue: "₱18.7M",
-    chartChange: "+27%",
-    chartCaption: "Performance this year",
-    series: {
-      revenue: [20, 30, 38, 35, 52, 60, 58, 64, 76, 72, 88, 96],
-      orders: [900, 980, 1060, 1120, 1240, 1320, 1410, 1490, 1620, 1710, 1840, 1960],
-      products: [120, 132, 145, 158, 171, 184, 190, 201, 216, 228, 240, 252],
-      growth: [6, 8, 9, 8, 11, 13, 12, 14, 16, 15, 18, 20],
-    },
-    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-    highlights: {
-      bestPeriod: "2025",
-      bestPeriodSub: "Best performing year",
-      bestYear: "2025",
-      bestYearSub: "Highest order volume",
-    },
-    productBreakdown: [
-      { name: "Button Down Shirt", count: 1220 },
-      { name: "Notched Collar Shirt", count: 1148 },
-      { name: "Graphic T-Shirt", count: 1084 },
-      { name: "The Modern Polo", count: 972 },
-      { name: "Sleeveless Knit Top", count: 688 },
-      { name: "Wide-Leg Trousers", count: 604 },
-    ],
-    orderBreakdown: [
-      { label: "Completed Orders", value: "15,980", sub: "86.7% fulfillment rate" },
-      { label: "Pending Orders", value: "1,364", sub: "In current queue" },
-      { label: "Cancelled Orders", value: "1,076", sub: "5.8% cancellation rate" },
-    ],
-    revenueBreakdown: [
-      { label: "Gross Revenue", value: "₱18.7M", sub: "Total annual revenue" },
-      { label: "Average Order Value", value: "₱1,170", sub: "Per completed order" },
-      { label: "Best Revenue Month", value: "November", sub: "Peak seasonal month" },
-    ],
-    growthBreakdown: [
-      { label: "Growth Rate", value: "19.8%", sub: "Compared to previous year" },
-      { label: "Best Growth Month", value: "November", sub: "Highest momentum" },
-      { label: "Retention Lift", value: "+4.7%", sub: "Annual repeat-customer gain" },
-    ],
-  },
-};
-
-const recentOrders = [
-  { id: "2847", time: "2 hours ago", amount: "₱2,450.50" },
-  { id: "2846", time: "4 hours ago", amount: "₱1,899.00" },
-  { id: "2845", time: "6 hours ago", amount: "₱5,670.00" },
-];
-
-const topBuyers: TopBuyer[] = [
-  {
-    id: 1,
-    name: "Maggie Johnson",
-    company: "Oasis Organic",
-    orders: 24,
-    spent: "₱48,200",
-    avatar: "https://i.pravatar.cc/100?img=5",
-  },
-  {
-    id: 2,
-    name: "Nathan Cruz",
-    company: "Urban Lane",
-    orders: 19,
-    spent: "₱37,450",
-    avatar: "https://i.pravatar.cc/100?img=12",
-  },
-  {
-    id: 3,
-    name: "Camille Reyes",
-    company: "North Studio",
-    orders: 16,
-    spent: "₱31,980",
-    avatar: "https://i.pravatar.cc/100?img=32",
-  },
-];
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const metricTitles: Record<MetricType, string> = {
   products: "Total Products Analytics",
@@ -253,11 +83,233 @@ const metricAccent: Record<MetricType, string> = {
   growth: "text-orange-500",
 };
 
+function timeAgo(dateStr: string) {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (diffHours < 1) return "Just now";
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  return `${Math.floor(diffHours / 24)} day${Math.floor(diffHours / 24) > 1 ? "s" : ""} ago`;
+}
+
+const emptyData: AnalyticsModeData = {
+  metrics: {
+    totalProducts: { value: "—", trend: "", note: "Loading..." },
+    totalOrders:   { value: "—", trend: "", note: "Loading..." },
+    totalRevenue:  { value: "—", trend: "", note: "Loading..." },
+    growthRate:    { value: "—", trend: "", note: "Loading..." },
+  },
+  chartTitle: "Sales Snapshot",
+  chartValue: "—",
+  chartChange: "",
+  chartCaption: "Loading data...",
+  series: { revenue: [], orders: [], products: [], growth: [] },
+  labels: [],
+  highlights: { bestPeriod: "—", bestPeriodSub: "—", bestYear: "—", bestYearSub: "—" },
+  productBreakdown: [],
+  orderBreakdown: [],
+  revenueBreakdown: [],
+  growthBreakdown: [],
+};
+
 export default function AdminDashboard() {
   const [mode, setMode] = useState<FilterMode>("last7days");
   const [detailMetric, setDetailMetric] = useState<MetricType | null>(null);
+  const [current, setCurrent] = useState<AnalyticsModeData>(emptyData);
+  const [recentOrders, setRecentOrders] = useState<{ id: string; time: string; amount: string }[]>([]);
+  const [topBuyers, setTopBuyers] = useState<TopBuyer[]>([]);
+  const [buyerCount, setBuyerCount] = useState<number>(0);
 
-  const current = useMemo(() => analyticsByMode[mode], [mode]);
+  const fetchDashboardData = useCallback(async (filterMode: FilterMode): Promise<FetchResult> => {
+    const supabase = createClient();
+    const now = new Date();
+
+    let startCurrent: Date, startPrev: Date, endPrev: Date;
+    if (filterMode === "last7days") {
+      startCurrent = new Date(now); startCurrent.setDate(now.getDate() - 7);
+      startPrev    = new Date(now); startPrev.setDate(now.getDate() - 14);
+      endPrev      = startCurrent;
+    } else if (filterMode === "month") {
+      startCurrent = new Date(now.getFullYear(), now.getMonth(), 1);
+      startPrev    = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endPrev      = startCurrent;
+    } else {
+      startCurrent = new Date(now.getFullYear(), 0, 1);
+      startPrev    = new Date(now.getFullYear() - 1, 0, 1);
+      endPrev      = startCurrent;
+    }
+
+    const { data: allOrders } = await supabase
+      .from("orders")
+      .select("id, total_price, created_at, user_id, status");
+    const orders = allOrders ?? [];
+
+    const currentOrders = orders.filter(o => new Date(o.created_at) >= startCurrent);
+    const prevOrders    = orders.filter(o => new Date(o.created_at) >= startPrev && new Date(o.created_at) < endPrev);
+
+    const { count: productCount } = await supabase
+      .from("items")
+      .select("*", { count: "exact", head: true });
+
+    const currentRevenue = currentOrders.reduce((s, o) => s + (o.total_price ?? 0), 0);
+    const prevRevenue    = prevOrders.reduce((s, o) => s + (o.total_price ?? 0), 0);
+    const totalRevenue   = orders.reduce((s, o) => s + (o.total_price ?? 0), 0);
+    const totalCount     = orders.length;
+
+    const orderTrend = prevOrders.length > 0
+      ? `${currentOrders.length >= prevOrders.length ? "+" : ""}${Math.round(((currentOrders.length - prevOrders.length) / prevOrders.length) * 100)}%`
+      : currentOrders.length > 0 ? "+100%" : "—";
+
+    const revenueTrend = prevRevenue > 0
+      ? `${currentRevenue >= prevRevenue ? "+" : ""}${Math.round(((currentRevenue - prevRevenue) / prevRevenue) * 100)}%`
+      : currentRevenue > 0 ? "+100%" : "—";
+
+    const growthValue = prevOrders.length > 0
+      ? `${Math.abs(Math.round(((currentOrders.length - prevOrders.length) / prevOrders.length) * 100))}%`
+      : "—";
+
+    const noteLabel = filterMode === "last7days" ? "vs previous 7 days"
+      : filterMode === "month" ? "vs previous month" : "vs previous year";
+
+    let labels: string[] = [];
+    let revenueSeries: number[] = [];
+    let orderSeries: number[] = [];
+
+    if (filterMode === "last7days") {
+      labels = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+      revenueSeries = Array(7).fill(0);
+      orderSeries   = Array(7).fill(0);
+      currentOrders.forEach(o => {
+        const day = new Date(o.created_at).getDay();
+        const idx = day === 0 ? 6 : day - 1;
+        revenueSeries[idx] += o.total_price ?? 0;
+        orderSeries[idx]   += 1;
+      });
+    } else if (filterMode === "month") {
+      labels = ["W1","W2","W3","W4"];
+      revenueSeries = Array(4).fill(0);
+      orderSeries   = Array(4).fill(0);
+      currentOrders.forEach(o => {
+        const day = new Date(o.created_at).getDate();
+        const idx = Math.min(Math.floor((day - 1) / 7), 3);
+        revenueSeries[idx] += o.total_price ?? 0;
+        orderSeries[idx]   += 1;
+      });
+    } else {
+      labels = MONTH_NAMES;
+      revenueSeries = Array(12).fill(0);
+      orderSeries   = Array(12).fill(0);
+      orders.forEach(o => {
+        if (new Date(o.created_at).getFullYear() === now.getFullYear()) {
+          const idx = new Date(o.created_at).getMonth();
+          revenueSeries[idx] += o.total_price ?? 0;
+          orderSeries[idx]   += 1;
+        }
+      });
+    }
+
+    const monthRevenue: Record<string, number> = {};
+    const yearRevenue:  Record<string, number> = {};
+    orders.forEach(o => {
+      const d = new Date(o.created_at);
+      const mk = MONTH_NAMES[d.getMonth()];
+      const yk = String(d.getFullYear());
+      monthRevenue[mk] = (monthRevenue[mk] ?? 0) + (o.total_price ?? 0);
+      yearRevenue[yk]  = (yearRevenue[yk]  ?? 0) + (o.total_price ?? 0);
+    });
+    const bestMonth = Object.entries(monthRevenue).sort((a,b) => b[1]-a[1])[0]?.[0] ?? "—";
+    const bestYear  = Object.entries(yearRevenue).sort((a,b) => b[1]-a[1])[0]?.[0] ?? "—";
+
+    const latest = [...orders]
+      .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3)
+      .map(o => ({ id: String(o.id), time: timeAgo(o.created_at), amount: `₱${(o.total_price ?? 0).toLocaleString()}` }));
+
+    const spendMap: Record<string, { total: number; count: number }> = {};
+    orders.forEach(o => {
+      if (!o.user_id) return;
+      if (!spendMap[o.user_id]) spendMap[o.user_id] = { total: 0, count: 0 };
+      spendMap[o.user_id].total += o.total_price ?? 0;
+      spendMap[o.user_id].count += 1;
+    });
+
+    const topUserIds = Object.entries(spendMap).sort((a,b) => b[1].total - a[1].total).slice(0,3).map(([id]) => id);
+    let buyers: TopBuyer[] = [];
+    if (topUserIds.length > 0) {
+      const { data: users } = await supabase.from("users").select("id, username").in("id", topUserIds);
+      const usernameMap: Record<string, string> = {};
+      (users ?? []).forEach(u => { usernameMap[u.id] = u.username; });
+      buyers = topUserIds.map((uid, i) => ({
+        id: i + 1,
+        name: usernameMap[uid] ?? "Anonymous",
+        company: "—",
+        orders: spendMap[uid].count,
+        spent: `₱${spendMap[uid].total.toLocaleString()}`,
+        avatar: `https://i.pravatar.cc/100?img=${i + 5}`,
+      }));
+    }
+
+    const completed = orders.filter(o => o.status === "completed").length;
+    const pending   = orders.filter(o => o.status === "pending").length;
+    const cancelled = orders.filter(o => o.status === "cancelled").length;
+
+    return {
+      recentOrders: latest,
+      topBuyers: buyers,
+      buyerCount: Object.keys(spendMap).length,
+      current: {
+        metrics: {
+          totalProducts: { value: (productCount ?? 0).toLocaleString(), trend: "", note: "Total active items" },
+          totalOrders:   { value: totalCount.toLocaleString(), trend: orderTrend, note: noteLabel },
+          totalRevenue:  { value: `₱${totalRevenue.toLocaleString()}`, trend: revenueTrend, note: noteLabel },
+          growthRate:    { value: growthValue, trend: revenueTrend, note: noteLabel },
+        },
+        chartTitle: filterMode === "last7days" ? "Sales Snapshot" : filterMode === "month" ? "Monthly Revenue" : "Yearly Revenue",
+        chartValue: `₱${currentRevenue.toLocaleString()}`,
+        chartChange: revenueTrend,
+        chartCaption: filterMode === "last7days" ? "Performance in the last 7 days"
+          : filterMode === "month" ? "Performance this month" : "Performance this year",
+        series: {
+          revenue:  revenueSeries,
+          orders:   orderSeries,
+          products: Array(labels.length).fill(productCount ?? 0),
+          growth:   orderSeries,
+        },
+        labels,
+        highlights: {
+          bestPeriod: bestMonth, bestPeriodSub: "Top revenue month",
+          bestYear:   bestYear,  bestYearSub:   "Highest revenue year",
+        },
+        productBreakdown: [],
+        orderBreakdown: [
+          { label: "Completed Orders", value: completed.toString(), sub: totalCount > 0 ? `${Math.round((completed/totalCount)*100)}% of all orders` : "—" },
+          { label: "Pending Orders",   value: pending.toString(),   sub: "Awaiting fulfillment" },
+          { label: "Cancelled Orders", value: cancelled.toString(), sub: totalCount > 0 ? `${Math.round((cancelled/totalCount)*100)}% cancellation rate` : "—" },
+        ],
+        revenueBreakdown: [
+          { label: "Total Revenue",    value: `₱${totalRevenue.toLocaleString()}`,                                              sub: "All time" },
+          { label: "Current Period",   value: `₱${currentRevenue.toLocaleString()}`,                                            sub: noteLabel },
+          { label: "Avg. Order Value", value: totalCount > 0 ? `₱${Math.round(totalRevenue/totalCount).toLocaleString()}` : "—", sub: "Per order" },
+        ],
+        growthBreakdown: [
+          { label: "Growth Rate",   value: growthValue,  sub: noteLabel },
+          { label: "Revenue Trend", value: revenueTrend, sub: "Revenue change" },
+          { label: "Order Trend",   value: orderTrend,   sub: "Order count change" },
+        ],
+      },
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDashboardData(mode).then(result => {
+      if (cancelled) return;
+      setCurrent(result.current);
+      setRecentOrders(result.recentOrders);
+      setTopBuyers(result.topBuyers);
+      setBuyerCount(result.buyerCount);
+    });
+    return () => { cancelled = true; };
+  }, [fetchDashboardData, mode]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -370,8 +422,9 @@ export default function AdminDashboard() {
               </div>
 
               <div className="flex-1 flex flex-col justify-end min-h-0">
-                <RevenueChart labels={current.labels} data={current.series.revenue} />
-
+                {current.series.revenue.length > 0 && (
+                  <RevenueChart labels={current.labels} data={current.series.revenue} />
+                )}
                 <div className="mt-3 flex items-center justify-between text-xs text-gray-400 font-medium">
                   {current.labels.map((label) => (
                     <span key={label}>{label}</span>
@@ -398,22 +451,26 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="space-y-3">
-                  {recentOrders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-100 px-3 py-3"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-gray-800">
-                          Order #{order.id}
-                        </p>
-                        <p className="text-xs text-gray-500">{order.time}</p>
+                  {recentOrders.length === 0 ? (
+                    <p className="text-gray-400 text-xs">No orders yet.</p>
+                  ) : (
+                    recentOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-100 px-3 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">
+                            Order #{order.id}
+                          </p>
+                          <p className="text-xs text-gray-500">{order.time}</p>
+                        </div>
+                        <span className="text-sm font-bold text-green-600">
+                          {order.amount}
+                        </span>
                       </div>
-                      <span className="text-sm font-bold text-green-600">
-                        {order.amount}
-                      </span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -436,14 +493,14 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
-                    142
+                    {buyerCount}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    Repeat buyers this period
+                    Unique buyers
                   </p>
                 </div>
                 <p className="text-xs text-green-500 font-semibold">
-                  +9.4% returning customers
+                  From your orders data
                 </p>
               </div>
             </div>
@@ -457,40 +514,44 @@ export default function AdminDashboard() {
               </div>
 
               <div className="space-y-3 overflow-hidden">
-                {topBuyers.map((buyer, index) => (
-                  <div
-                    key={buyer.id}
-                    className="flex items-center justify-between rounded-2xl border border-gray-100 bg-[#FAFAFA] px-4 py-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 text-sm font-bold text-gray-400">
-                        #{index + 1}
+                {topBuyers.length === 0 ? (
+                  <p className="text-gray-400 text-xs">No buyers yet.</p>
+                ) : (
+                  topBuyers.map((buyer, index) => (
+                    <div
+                      key={buyer.id}
+                      className="flex items-center justify-between rounded-2xl border border-gray-100 bg-[#FAFAFA] px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 text-sm font-bold text-gray-400">
+                          #{index + 1}
+                        </div>
+                        <img
+                          src={buyer.avatar}
+                          alt={buyer.name}
+                          className="w-11 h-11 rounded-full object-cover"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-gray-900 truncate">
+                            {buyer.name}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {buyer.company}
+                          </p>
+                        </div>
                       </div>
-                      <img
-                        src={buyer.avatar}
-                        alt={buyer.name}
-                        className="w-11 h-11 rounded-full object-cover"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900 truncate">
-                          {buyer.name}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {buyer.company}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-[#003049]">
-                        {buyer.spent}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {buyer.orders} orders
-                      </p>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-[#003049]">
+                          {buyer.spent}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {buyer.orders} orders
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -510,9 +571,7 @@ function MetricDetailView({
   onBack: () => void;
 }) {
   const breakdown =
-    metric === "products"
-      ? current.productBreakdown
-      : metric === "orders"
+    metric === "orders"
       ? current.orderBreakdown
       : metric === "revenue"
       ? current.revenueBreakdown
@@ -583,19 +642,23 @@ function MetricDetailView({
                 Product Totals
               </h3>
               <div className="space-y-3">
-                {current.productBreakdown.map((product) => (
-                  <div
-                    key={product.name}
-                    className="flex items-center justify-between rounded-xl bg-white border border-gray-100 px-4 py-3"
-                  >
-                    <span className="text-sm font-semibold text-gray-800">
-                      {product.name}
-                    </span>
-                    <span className="text-sm font-bold text-[#003049]">
-                      {product.count}
-                    </span>
-                  </div>
-                ))}
+                {current.productBreakdown.length === 0 ? (
+                  <p className="text-gray-400 text-xs">No breakdown data yet.</p>
+                ) : (
+                  current.productBreakdown.map((product) => (
+                    <div
+                      key={product.name}
+                      className="flex items-center justify-between rounded-xl bg-white border border-gray-100 px-4 py-3"
+                    >
+                      <span className="text-sm font-semibold text-gray-800">
+                        {product.name}
+                      </span>
+                      <span className="text-sm font-bold text-[#003049]">
+                        {product.count}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -604,10 +667,12 @@ function MetricDetailView({
                 Product Count Trend
               </h3>
               <div className="flex-1 flex flex-col justify-end">
-                <RevenueChart
-                  labels={current.labels}
-                  data={current.series.products}
-                />
+                {current.series.products.length > 0 && (
+                  <RevenueChart
+                    labels={current.labels}
+                    data={current.series.products}
+                  />
+                )}
                 <div className="mt-3 flex items-center justify-between text-xs text-gray-400 font-medium">
                   {current.labels.map((label) => (
                     <span key={label}>{label}</span>
@@ -623,10 +688,12 @@ function MetricDetailView({
                 {metricTitles[metric]}
               </h3>
               <div className="flex-1 flex flex-col justify-end">
-                <RevenueChart
-                  labels={current.labels}
-                  data={current.series[metric]}
-                />
+                {current.series[metric].length > 0 && (
+                  <RevenueChart
+                    labels={current.labels}
+                    data={current.series[metric]}
+                  />
+                )}
                 <div className="mt-3 flex items-center justify-between text-xs text-gray-400 font-medium">
                   {current.labels.map((label) => (
                     <span key={label}>{label}</span>
@@ -677,38 +744,7 @@ function MetricDetailView({
           </div>
 
           <div className="space-y-3 overflow-hidden">
-            {topBuyers.map((buyer, index) => (
-              <div
-                key={buyer.id}
-                className="flex items-center justify-between rounded-2xl border border-gray-100 bg-[#FAFAFA] px-4 py-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 text-sm font-bold text-gray-400">
-                    #{index + 1}
-                  </div>
-                  <img
-                    src={buyer.avatar}
-                    alt={buyer.name}
-                    className="w-11 h-11 rounded-full object-cover"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-900 truncate">
-                      {buyer.name}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {buyer.company}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-[#003049]">
-                    {buyer.spent}
-                  </p>
-                  <p className="text-xs text-gray-500">{buyer.orders} orders</p>
-                </div>
-              </div>
-            ))}
+            <p className="text-gray-400 text-xs">See main dashboard for top buyers.</p>
           </div>
         </div>
       </div>
@@ -717,21 +753,10 @@ function MetricDetailView({
 }
 
 function StatCard({
-  title,
-  value,
-  trend,
-  note,
-  icon,
-  onClick,
-  active,
+  title, value, trend, note, icon, onClick, active,
 }: {
-  title: string;
-  value: string;
-  trend: string;
-  note: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-  active: boolean;
+  title: string; value: string; trend: string; note: string;
+  icon: React.ReactNode; onClick: () => void; active: boolean;
 }) {
   return (
     <button
@@ -751,7 +776,7 @@ function StatCard({
         <span className="text-3xl font-bold text-gray-900 tracking-tight">
           {value}
         </span>
-        <span className="text-sm text-green-500 font-semibold mb-1">{trend}</span>
+        {trend && <span className="text-sm text-green-500 font-semibold mb-1">{trend}</span>}
       </div>
       <p className="text-xs text-gray-500">{note}</p>
     </button>
@@ -759,15 +784,9 @@ function StatCard({
 }
 
 function CompactInfoCard({
-  title,
-  primary,
-  secondary,
-  accent,
+  title, primary, secondary, accent,
 }: {
-  title: string;
-  primary: string;
-  secondary: string;
-  accent?: string;
+  title: string; primary: string; secondary: string; accent?: string;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 min-h-0 flex flex-col justify-between">
