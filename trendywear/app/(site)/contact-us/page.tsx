@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiPhone, FiMail, FiX, FiChevronDown } from "react-icons/fi";
 import Breadcrumb from "../components/Breadcrumb";
+import { createClient } from "@/utils/supabase/client";
 
 type CamanavaCity = "Caloocan" | "Malabon" | "Navotas" | "Valenzuela";
 
@@ -59,6 +60,7 @@ export default function ContactUsPage() {
     const info = useMemo(() => CONTACT_INFO[city], [city]);
 
     const [isOpen, setIsOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [form, setForm] = useState<EmailFormState>({
         title: "",
@@ -76,15 +78,7 @@ export default function ContactUsPage() {
         value: EmailFormState[K]
     ) => setForm((prev) => ({ ...prev, [key]: value }));
 
-    const onSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-
-        // TODO: connect to Supabase/email service
-        console.log("Submitted:", { city, ...form });
-
-        alert("Email sent! (Connect this to your backend later)");
-        setIsOpen(false);
-
+    const resetForm = () => {
         setForm({
             title: "",
             firstName: "",
@@ -95,6 +89,52 @@ export default function ContactUsPage() {
             subject: "",
             message: "",
         });
+    };
+
+    const onSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        const supabase = createClient();
+        const fullName = [form.title, form.firstName, form.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+
+        try {
+            setIsSubmitting(true);
+
+            const { error } = await supabase.from("contact_messages").insert({
+                full_name: fullName,
+                email: form.email,
+                subject: form.subject,
+                message: [
+                    `City: ${city}`,
+                    form.phoneNumber
+                        ? `Phone: ${form.phonePrefix} ${form.phoneNumber}`
+                        : null,
+                    "",
+                    form.message,
+                ]
+                    .filter(Boolean)
+                    .join("\n"),
+                status: "unread",
+            });
+
+            if (error) {
+                console.error("Error sending message:", error);
+                alert("Failed to send message. Please try again.");
+                return;
+            }
+
+            alert("Your message has been sent successfully.");
+            resetForm();
+            setIsOpen(false);
+        } catch (error) {
+            console.error("Unexpected error:", error);
+            alert("Something went wrong. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -205,6 +245,7 @@ export default function ContactUsPage() {
                     setField={setField}
                     onClose={() => setIsOpen(false)}
                     onSubmit={onSubmit}
+                    isSubmitting={isSubmitting}
                 />
             )}
         </div>
@@ -217,6 +258,7 @@ function EmailDrawer({
     setField,
     onClose,
     onSubmit,
+    isSubmitting,
 }: {
     city: string;
     form: EmailFormState;
@@ -226,17 +268,17 @@ function EmailDrawer({
     ) => void;
     onClose: () => void;
     onSubmit: (e: React.FormEvent) => void;
+    isSubmitting: boolean;
 }) {
     const panelRef = useRef<HTMLDivElement | null>(null);
 
-    // Pure Tailwind transitions (no keyframes)
     const [isVisible, setIsVisible] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
 
     const ANIM_MS = 260;
 
     const requestClose = () => {
-        if (isClosing) return;
+        if (isClosing || isSubmitting) return;
         setIsClosing(true);
         setIsVisible(false);
         window.setTimeout(() => onClose(), ANIM_MS);
@@ -259,7 +301,6 @@ function EmailDrawer({
             document.body.style.overflow = prev;
             window.clearTimeout(t);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
@@ -287,16 +328,17 @@ function EmailDrawer({
                     isVisible && !isClosing ? "translate-x-0" : "translate-x-full",
                 ].join(" ")}
             >
-                {/* X button (hover anim) */}
+                {/* X button */}
                 <button
                     type="button"
                     onClick={requestClose}
                     aria-label="Close"
+                    disabled={isSubmitting}
                     className={[
                         "group absolute top-6 right-6",
                         "w-12 h-12 rounded-full bg-black text-white",
                         "flex items-center justify-center shadow-lg",
-                        "transition-transform duration-200 ease-out hover:scale-105",
+                        "transition-transform duration-200 ease-out hover:scale-105 disabled:opacity-50",
                     ].join(" ")}
                 >
                     <FiX className="text-lg transition-transform duration-200 ease-out group-hover:rotate-90" />
@@ -397,9 +439,10 @@ function EmailDrawer({
 
                         <button
                             type="submit"
-                            className="w-full bg-black text-white py-4 mt-2 text-[12px] tracking-[0.25em] uppercase font-semibold hover:opacity-95"
+                            disabled={isSubmitting}
+                            className="w-full bg-black text-white py-4 mt-2 text-[12px] tracking-[0.25em] uppercase font-semibold hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            SEND EMAIL
+                            {isSubmitting ? "SENDING..." : "SEND EMAIL"}
                         </button>
                     </form>
                 </div>
@@ -490,9 +533,7 @@ function SelectField({
           focus:border-black
         "
             >
-                <option value="" disabled>
-                    {/* placeholder */}
-                </option>
+                <option value="" disabled></option>
 
                 {options.map((opt) => (
                     <option key={opt.label} value={opt.value}>
