@@ -18,12 +18,11 @@ type Product = {
     id: number;
     name: string;
     images: string[];
-    oldPrice?: number;
+    oldPrice?: number | null;
     price: number;
     rating: number;
     reviews: number;
     is_liked: boolean;
-    colors: string[];
     description: string[];
     features: string[];
 };
@@ -137,6 +136,9 @@ export default function ProductPage() {
     const [editSubmitting, setEditSubmitting] = useState(false);
     const [editError, setEditError] = useState("");
 
+    const [colors,setColors] = useState<string[]>(["Red","Blue"]);
+    const [sizes,setSizes] = useState<string[]>(["XS", "S", "M", "L", "XL"]);
+
     useEffect(() => {
         async function fetchData() {
             const supabase = createClient();
@@ -151,17 +153,23 @@ export default function ProductPage() {
             if (error || !items) { setLoading(false); return; }
 
             const itemIds = items.map((i) => i.id);
+            const now = new Date().toISOString();
 
             const { data: prices } = await supabase
-                .from("prices").select("item_id, price").in("item_id", itemIds);
+                .from("prices")
+                .select("item_id, price")
+                .in("item_id", itemIds)
+                .lte("valid_from", now)
+                .or(`valid_to.is.null,valid_to.gte.${now}`)
+                .order("priority", { ascending: false });
 
-            const priceMap: Record<number, { price: number; oldPrice?: number }> = {};
-            if (prices) {
-                for (const p of prices) {
-                    if (!(p.item_id in priceMap)) {
-                        priceMap[p.item_id] = { price: p.price ?? 0, oldPrice: (p as any).old_price };
-                    }
+            const priceGroups: Record<string, number[]> = {};
+
+            for (const p of prices ?? []) {
+                if (!priceGroups[p.item_id]) {
+                    priceGroups[p.item_id] = [];
                 }
+                priceGroups[p.item_id].push(p.price);
             }
 
             const wishlistSet = new Set<number>();
@@ -188,17 +196,21 @@ export default function ProductPage() {
                 const imageUrls = (item.image_id ?? []).map(
                     (imgId: string) => supabase.storage.from(BUCKET_NAME).getPublicUrl(imgId).data.publicUrl
                 );
-                const priceObj = priceMap[item.id] ?? { price: 0 };
+                const currentPrice: number = priceGroups[item.id]?.[0] ?? 0;
+                const oldPrice: number | null =
+                priceGroups[item.id]?.length > 1
+                    ? priceGroups[item.id][1]
+                    : null;
                 const rd = ratingMap[item.id];
                 return {
                     id: item.id,
                     name: item.name ?? "Unnamed",
                     images: imageUrls.length > 0 ? imageUrls : ["/placeholder.jpg"],
-                    price: priceObj.price,
-                    oldPrice: priceObj.oldPrice,
+                    price: currentPrice,
+                    oldPrice: oldPrice,
                     rating: rd ? Math.round((rd.sum / rd.count) * 10) / 10 : 0,
                     reviews: rd?.count ?? 0,
-                    colors: [],
+                    colors: ["Red", "Blue", "Green", "Black", "White"],
                     is_liked: wishlistSet.has(item.id),
                     description: item.description ? [item.description] : [],
                     features: [],
@@ -416,11 +428,12 @@ export default function ProductPage() {
                                     <span className="text-[16px] text-gray-500">({product.reviews} review{product.reviews !== 1 ? "s" : ""})</span>
                                 )}
                             </div>
-
+                            
+                            {/* COLORS AND SIZES */}
                             <div className="mb-6">
                                 <p className="text-[24px] font-medium mb-2">Color</p>
                                 <div className="flex gap-2">
-                                    {product.colors.map((color) => (
+                                    {colors.map((color) => (
                                         <button key={color} onClick={() => setSelectedColor(color)}
                                             className={`w-6 h-6 rounded-full border-2 ${selectedColor === color ? "border-black" : "border-transparent"}`}
                                             style={{ backgroundColor: color }} />
@@ -431,7 +444,7 @@ export default function ProductPage() {
                             <div className="mb-10 mt-15">
                                 <p className="text-[24px] font-medium mb-2">Size</p>
                                 <div className="flex gap-2">
-                                    {["XS", "S", "M", "L", "XL"].map((size) => (
+                                    {sizes.map((size) => (
                                         <button key={size} onClick={() => setSelectedSize(size)}
                                             className={`h-[54px] w-[54px] rounded-full text-xs border ${selectedSize === size ? "bg-[#C1121F] text-white border-[#C1121F]" : "bg-gray-200 border-gray-200"}`}>
                                             {size}

@@ -6,7 +6,7 @@ export type Product = {
     id: number;
     name: string;
     images: string[];
-    oldPrice?: number;
+    oldPrice?: number | null;
     price: number;
     rating: number;
     reviews: number;
@@ -61,13 +61,15 @@ export async function fetchProducts(
         .or(`valid_to.is.null,valid_to.gte.${now}`)
         .order("priority", { ascending: false });
 
-    const priceMap: Record<number, number> = {};
-    if (prices) {
-        for (const p of prices) {
-            if (!(p.item_id in priceMap)) priceMap[p.item_id] = p.price;
-        }
-    }
+    const priceGroups: Record<string, number[]> = {};
 
+    for (const p of prices ?? []) {
+        if (!priceGroups[p.item_id]) {
+            priceGroups[p.item_id] = [];
+        }
+        priceGroups[p.item_id].push(p.price);
+    }
+    
     // Fetch wishlist
     const wishlistSet = new Set<number>();
     if (user_id) {
@@ -103,12 +105,18 @@ export async function fetchProducts(
         );
         const rd = ratingMap[item.id];
         const avgRating = rd ? Math.round((rd.sum / rd.count) * 10) / 10 : 0;
+        const currentPrice: number = priceGroups[item.id]?.[0] ?? 0;
+        const oldPrice: number | null =
+        priceGroups[item.id]?.length > 1
+            ? priceGroups[item.id][1]
+            : null;
 
         return {
             id: item.id,
             name: item.name ?? "Unnamed",
             images: imageUrls.length > 0 ? imageUrls : ["/placeholder.jpg"],
-            price: priceMap[item.id] ?? 0,
+            price: currentPrice,
+            oldPrice: oldPrice,
             rating: avgRating,
             reviews: rd?.count ?? 0,
             is_liked: wishlistSet.has(item.id),
