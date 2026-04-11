@@ -6,13 +6,12 @@ export type Product = {
     id: number;
     name: string;
     images: string[];
-    oldPrice?: number | null;
+    oldPrice?: number;
     price: number;
     rating: number;
     reviews: number;
     is_liked: boolean;
     colors: string[];
-    sizes: string[];
     tags: string[];
 };
 
@@ -26,8 +25,6 @@ export async function fetchProducts(
     sortBy?: SortOption
 ): Promise<Product[]> {
     const supabase = createClient();
-
-    // ✅ Use getUser() to avoid navigator lock timeout
     const { data: { user } } = await supabase.auth.getUser();
     const user_id = user?.id;
 
@@ -45,15 +42,12 @@ export async function fetchProducts(
     }
 
     const { data: items, error } = await query;
-
-    if (error || !items) {
-        throw error ?? new Error("No items returned");
-    }
+    if (error || !items) throw error ?? new Error("No items returned");
 
     const itemIds = items.map((i) => i.id);
     const now = new Date().toISOString();
 
-    // Fetch prices
+    // ✅ Fetch ALL prices per item (to get current + old price)
     const { data: prices } = await supabase
         .from("prices")
         .select("item_id, price")
@@ -62,33 +56,26 @@ export async function fetchProducts(
         .or(`valid_to.is.null,valid_to.gte.${now}`)
         .order("priority", { ascending: false });
 
-    const priceGroups: Record<string, number[]> = {};
-
-    for (const p of prices ?? []) {
-        if (!priceGroups[p.item_id]) {
-            priceGroups[p.item_id] = [];
+    // Group all prices per item — index 0 = current (highest priority), index 1 = old
+    const priceGroups: Record<number, number[]> = {};
+    if (prices) {
+        for (const p of prices) {
+            if (!priceGroups[p.item_id]) priceGroups[p.item_id] = [];
+            priceGroups[p.item_id].push(p.price);
         }
-        priceGroups[p.item_id].push(p.price);
     }
-    
-    // Fetch wishlist
+
     const wishlistSet = new Set<number>();
     if (user_id) {
         const { data: wishlisted } = await supabase
-            .from("wishlist")
-            .select("item_id")
-            .eq("user_id", user_id)
-            .in("item_id", itemIds);
-        if (wishlisted) {
-            for (const w of wishlisted) wishlistSet.add(w.item_id);
-        }
+            .from("wishlist").select("item_id")
+            .eq("user_id", user_id).in("item_id", itemIds);
+        if (wishlisted) for (const w of wishlisted) wishlistSet.add(w.item_id);
     }
 
-    // ✅ Fetch reviews to compute real avg rating + count
+    // ✅ Fetch reviews — compute avg with 0.5 rounding
     const { data: reviews } = await supabase
-        .from("reviews")
-        .select("item_id, rating")
-        .in("item_id", itemIds);
+        .from("reviews").select("item_id, rating").in("item_id", itemIds);
 
     const ratingMap: Record<number, { sum: number; count: number }> = {};
     if (reviews) {
@@ -99,64 +86,61 @@ export async function fetchProducts(
         }
     }
 
-    const { data: attributeData } = await supabase
-                .from('item_variants')
-                .select('color, item_id, size')
-                .in('item_id', itemIds)
-            
+    // ✅ Fetch colors from item_variants
+    const { data: variants } = await supabase
+        .from("item_variants")
+        .select("item_id, color")
+        .in("item_id", itemIds);
+
     const colorMap: Record<number, Set<string>> = {};
-    const sizeMap: Record<number, Set<string>> = {};
-    if (attributeData){
-        for (const c of attributeData){
-            if (!colorMap[c.item_id]) {
-                colorMap[c.item_id] = new Set()
-            }
-            if (!sizeMap[c.item_id]) {
-                sizeMap[c.item_id] = new Set()
-            }
-            colorMap[c.item_id].add(c.color)
-            sizeMap[c.item_id].add(c.size)
+    if (variants) {
+        for (const v of variants) {
+            if (!colorMap[v.item_id]) colorMap[v.item_id] = new Set();
+            colorMap[v.item_id].add(v.color);
         }
     }
-    
+
     const mapped: Product[] = items.map((item) => {
         const imageUrls = (item.image_id ?? []).map(
-            (imgId: string) =>
-                supabase.storage.from(BUCKET_NAME).getPublicUrl(imgId).data.publicUrl
+            (imgId: string) => supabase.storage.from(BUCKET_NAME).getPublicUrl(imgId).data.publicUrl
         );
         const rd = ratingMap[item.id];
-        const avgRating = rd ? Math.round((rd.sum / rd.count) * 10) / 10 : 0;
-        const currentPrice: number = priceGroups[item.id]?.[0] ?? 0;
-        const oldPrice: number | null =
-        priceGroups[item.id]?.length > 1
-            ? priceGroups[item.id][1]
-            : null;
-        const uniqueColors = [...(colorMap[item.id] ?? new Set())]
-        const uniqueSizes = [...(sizeMap[item.id] ?? new Set())]
+        const rawAvg = rd ? rd.sum / rd.count : 0;
+        const avgRating = rd ? Math.round(rawAvg * 2) / 2 : 0;
+
+        const currentPrice = priceGroups[item.id]?.[0] ?? 0;
+        const oldPrice = priceGroups[item.id]?.length > 1 ? priceGroups[item.id][1] : undefined;
 
         return {
             id: item.id,
             name: item.name ?? "Unnamed",
             images: imageUrls.length > 0 ? imageUrls : ["/placeholder.jpg"],
             price: currentPrice,
-            oldPrice: oldPrice,
+            oldPrice: oldPrice && oldPrice > currentPrice ? oldPrice : undefined,
             rating: avgRating,
             reviews: rd?.count ?? 0,
             is_liked: wishlistSet.has(item.id),
-            colors: uniqueColors,
-            sizes: uniqueSizes,
+            colors: [...(colorMap[item.id] ?? new Set())],
             tags: item.tags ?? [],
         };
     });
 
-    // Apply sorting
-    if (sortBy === "price_asc") {
-        mapped.sort((a, b) => a.price - b.price);
-    } else if (sortBy === "rating") {
-        mapped.sort((a, b) => b.rating - a.rating);
-    } else if (sortBy === "name") {
-        mapped.sort((a, b) => a.name.localeCompare(b.name));
-    }
+    if (sortBy === "price_asc") mapped.sort((a, b) => a.price - b.price);
+    else if (sortBy === "rating") mapped.sort((a, b) => b.rating - a.rating);
+    else if (sortBy === "name") mapped.sort((a, b) => a.name.localeCompare(b.name));
 
     return mapped;
+}
+
+// ✅ Helper: extract unique subcategories from fetched products given a main category
+export function getSubCategories(products: Product[], mainCategory: string): string[] {
+    const subs = new Set<string>();
+    for (const p of products) {
+        if (!mainCategory || p.tags.includes(mainCategory)) {
+            for (const tag of p.tags) {
+                if (tag !== mainCategory) subs.add(tag);
+            }
+        }
+    }
+    return [...subs].sort();
 }

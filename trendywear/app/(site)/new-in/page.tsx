@@ -25,7 +25,7 @@ export default function Page() {
   const [selectedSize, setSelectedSize] = useState("XS");
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [price, setPrice] = useState(25000);
+  const [price, setPrice] = useState(5000);
   const [selectedFits, setSelectedFits] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
 
@@ -51,17 +51,39 @@ export default function Page() {
       .finally(() => setLoading(false));
   }, [activeCategory, searchQuery, sortBy]);
 
+  // ---- Derive subcategories from tags (skip first tag = gender/main) ----
+  const availableSubCategories = useMemo(() => {
+    const subSet = new Set<string>();
+    allProducts.forEach((p) => {
+      if (Array.isArray(p.tags)) {
+        p.tags.slice(1).forEach((tag: string) => subSet.add(tag));
+      }
+    });
+    return [...subSet].sort();
+  }, [allProducts]);
+
   // ---- Client-side filtering ----
   const filteredProducts = useMemo(() => {
     return allProducts.filter((p) => {
       if (p.price > price) return false;
-      if (minRating > 0 && Math.floor(p.rating) !== minRating) return false;
+
+      // Minimum rating filter (>= minRating)
+      if (minRating > 0 && p.rating < minRating) return false;
+
+      // Colors: match any selected color
       if (selectedColors.length > 0 && p.colors.length > 0) {
         if (!selectedColors.some((c) => p.colors.includes(c))) return false;
       }
+
+      // Subcategories: OR logic — show if product matches ANY selected subcategory
+      if (selectedSubCategories.length > 0) {
+        const productTags: string[] = Array.isArray(p.tags) ? p.tags : [];
+        if (!selectedSubCategories.some((sub) => productTags.includes(sub))) return false;
+      }
+
       return true;
     });
-  }, [allProducts, price, minRating, selectedColors]);
+  }, [allProducts, price, minRating, selectedColors, selectedSubCategories]);
 
   // ---- Pagination ----
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
@@ -73,7 +95,7 @@ export default function Page() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setActivePage(1);
-  }, [price, minRating, selectedColors, selectedFits]);
+  }, [price, minRating, selectedColors, selectedFits, selectedSubCategories]);
 
   const toggleSubCategory = (value: string) =>
     setSelectedSubCategories((prev) =>
@@ -92,7 +114,7 @@ export default function Page() {
 
   // ---- Active filter count ----
   const activeFilterCount = [
-    price < 25000 ? 1 : 0,
+    price < 5000 ? 1 : 0,
     minRating > 0 ? 1 : 0,
     selectedColors.length,
     selectedFits.length,
@@ -100,7 +122,7 @@ export default function Page() {
   ].reduce((a, b) => a + b, 0);
 
   const clearAllFilters = () => {
-    setPrice(25000);
+    setPrice(5000);
     setMinRating(0);
     setSelectedColors([]);
     setSelectedFits([]);
@@ -119,6 +141,7 @@ export default function Page() {
             activeCategory={activeCategory}
             selectedSubCategories={selectedSubCategories}
             onToggleSubCategory={toggleSubCategory}
+            availableSubCategories={availableSubCategories}
             selectedColors={selectedColors}
             onToggleColor={toggleColor}
             price={price}
@@ -205,15 +228,15 @@ export default function Page() {
                   </span>
                 </span>
 
-                {price < 25000 && (
+                {price < 5000 && (
                   <span className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-3 py-1">
                     Max ₱{price.toLocaleString()}
-                    <button onClick={() => setPrice(25000)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
+                    <button onClick={() => setPrice(5000)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
                   </span>
                 )}
                 {minRating > 0 && (
                   <span className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-3 py-1">
-                    {minRating}★
+                    {minRating === 5 ? "5★" : `${minRating}★ – ${minRating + 1}★`}
                     <button onClick={() => setMinRating(0)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
                   </span>
                 )}
@@ -221,6 +244,12 @@ export default function Page() {
                   <span key={c} className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-3 py-1">
                     {c}
                     <button onClick={() => toggleColor(c)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
+                  </span>
+                ))}
+                {selectedSubCategories.map((s) => (
+                  <span key={s} className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-3 py-1">
+                    {s}
+                    <button onClick={() => toggleSubCategory(s)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
                   </span>
                 ))}
 

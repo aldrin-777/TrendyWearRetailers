@@ -11,28 +11,23 @@ import { useSearchParams } from "next/navigation";
 const ITEMS_PER_PAGE = 8;
 
 export default function Page() {
-  // ---- Fetch state ----
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ---- Search & category (hits Supabase) ----
   const [searchQuery, setSearchQuery] = useState("");
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get("category") || undefined;
   const [activeCategory, setActiveCategory] = useState<string | undefined>(initialCategory);
 
-  // ---- Sort ----
   const [sortBy, setSortBy] = useState<SortOption>(null);
 
-  // ---- Client-side filter state ----
   const [selectedSize, setSelectedSize] = useState("XS");
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [price, setPrice] = useState(25000);      // max price slider
+  const [price, setPrice] = useState(5000);
   const [selectedFits, setSelectedFits] = useState<string[]>([]);
-  const [minRating, setMinRating] = useState(0);  // minimum star rating
+  const [minRating, setMinRating] = useState(0);
 
-  // ---- Pagination ----
   const [activePage, setActivePage] = useState(1);
 
   const categories = ["Men", "Women", "Tops", "Bottoms", "Shirt", "Dress"];
@@ -44,7 +39,6 @@ export default function Page() {
     { label: "Top Rated", value: "rating" },
   ];
 
-  // ---- Fetch from Supabase when search/category/sort changes ----
   useEffect(() => {
     setLoading(true);
     setActivePage(1);
@@ -54,38 +48,53 @@ export default function Page() {
       .finally(() => setLoading(false));
   }, [activeCategory, searchQuery, sortBy]);
 
-  // ---- Client-side filtering ----
+  const availableSubCategories = useMemo(() => {
+    const subSet = new Set<string>();
+    allProducts.forEach((p) => {
+      if (Array.isArray(p.tags)) {
+        p.tags.slice(1).forEach((tag: string) => subSet.add(tag));
+      }
+    });
+    return [...subSet].sort();
+  }, [allProducts]);
+
   const filteredProducts = useMemo(() => {
     return allProducts.filter((p) => {
-      // Price: show products up to selected max price
       if (p.price > price) return false;
 
-      // Minimum rating filter
-      if (minRating > 0 && Math.floor(p.rating) !== minRating) return false;
-
-      // Colors: if any selected, product must have at least one match
+      if (minRating > 0) {
+        if (minRating === 5) {
+          if (p.rating < 5) return false;
+        } else {
+          if (p.rating < minRating || p.rating >= minRating + 1) return false;
+        }
+      }
 
       if (selectedColors.length > 0 && p.colors.length > 0) {
         const hasColor = selectedColors.some((c) => p.colors.includes(c));
         if (!hasColor) return false;
       }
 
+      // ✅ OR logic: show product if it matches ANY selected subcategory
+      if (selectedSubCategories.length > 0) {
+        const productTags: string[] = Array.isArray(p.tags) ? p.tags : [];
+        const hasAnySub = selectedSubCategories.some((sub) => productTags.includes(sub));
+        if (!hasAnySub) return false;
+      }
 
       return true;
     });
-  }, [allProducts, price, minRating, selectedColors]);
+  }, [allProducts, price, minRating, selectedColors, selectedSubCategories]);
 
-  // ---- Pagination ----
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
   const paginatedProducts = filteredProducts.slice(
     (activePage - 1) * ITEMS_PER_PAGE,
     activePage * ITEMS_PER_PAGE
   );
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setActivePage(1);
-  }, [price, minRating, selectedColors, selectedFits]);
+  }, [price, minRating, selectedColors, selectedFits, selectedSubCategories]);
 
   const toggleSubCategory = (value: string) => {
     setSelectedSubCategories((prev) =>
@@ -105,9 +114,8 @@ export default function Page() {
     );
   };
 
-  // ---- Active filter count badge ----
   const activeFilterCount = [
-    price < 25000 ? 1 : 0,
+    price < 5000 ? 1 : 0,
     minRating > 0 ? 1 : 0,
     selectedColors.length,
     selectedFits.length,
@@ -115,7 +123,7 @@ export default function Page() {
   ].reduce((a, b) => a + b, 0);
 
   const clearAllFilters = () => {
-    setPrice(25000);
+    setPrice(5000);
     setMinRating(0);
     setSelectedColors([]);
     setSelectedFits([]);
@@ -127,24 +135,24 @@ export default function Page() {
       <main className="max-w-[1440px] mx-auto px-10 py-10">
         <div className="grid grid-cols-[260px_1fr] gap-14 items-start">
 
-          {/* FILTERS SIDEBAR */}
           <FiltersSidebar
             selectedSize={selectedSize}
             onSelectSize={setSelectedSize}
             activeCategory={activeCategory ?? ""}
             selectedSubCategories={selectedSubCategories}
             onToggleSubCategory={toggleSubCategory}
+            availableSubCategories={availableSubCategories}
             selectedColors={selectedColors}
             onToggleColor={toggleColor}
             price={price}
             onPriceChange={setPrice}
+            maxPrice={5000}
             selectedFits={selectedFits}
             onToggleFit={toggleFit}
             rating={minRating}
             onRatingChange={setMinRating}
           />
 
-          {/* RIGHT COLUMN */}
           <section>
             <Breadcrumb
               items={[
@@ -155,9 +163,7 @@ export default function Page() {
 
             <h1 className="text-4xl font-bold text-[#C1121F] mb-4">All Products</h1>
 
-            {/* SEARCH + SORT + CATEGORIES */}
             <div className="mb-6 flex flex-wrap items-center gap-3 justify-between">
-              {/* SEARCH */}
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -169,7 +175,6 @@ export default function Page() {
                 />
               </div>
 
-              {/* SORT */}
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-[#535353] font-medium">Sort by:</span>
                 <select
@@ -185,7 +190,6 @@ export default function Page() {
                 </select>
               </div>
 
-              {/* CATEGORIES */}
               <div className="flex gap-2 flex-wrap">
                 {categories.map((cat) => {
                   const isActive = cat === activeCategory;
@@ -210,7 +214,6 @@ export default function Page() {
               </div>
             </div>
 
-            {/* ACTIVE FILTERS BAR */}
             {activeFilterCount > 0 && (
               <div className="mb-4 flex items-center gap-3 flex-wrap text-sm">
                 <span className="text-[#535353]">
@@ -220,15 +223,15 @@ export default function Page() {
                   </span>
                 </span>
 
-                {price < 25000 && (
+                {price < 5000 && (
                   <span className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-3 py-1">
                     Max ₱{price.toLocaleString()}
-                    <button onClick={() => setPrice(25000)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
+                    <button onClick={() => setPrice(5000)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
                   </span>
                 )}
                 {minRating > 0 && (
                   <span className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-3 py-1">
-                    {minRating}★
+                    {minRating === 5 ? "5★" : `${minRating}★ – ${minRating + 1}★`}
                     <button onClick={() => setMinRating(0)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
                   </span>
                 )}
@@ -236,6 +239,12 @@ export default function Page() {
                   <span key={c} className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-3 py-1">
                     {c}
                     <button onClick={() => toggleColor(c)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
+                  </span>
+                ))}
+                {selectedSubCategories.map((s) => (
+                  <span key={s} className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-3 py-1">
+                    {s}
+                    <button onClick={() => toggleSubCategory(s)} className="ml-1 text-gray-400 hover:text-[#C1121F]">×</button>
                   </span>
                 ))}
 
@@ -248,17 +257,14 @@ export default function Page() {
               </div>
             )}
 
-            {/* RESULTS COUNT */}
             {!loading && (
               <p className="text-sm text-[#6E6E6E] mb-4">
                 Showing {paginatedProducts.length} of {filteredProducts.length} product{filteredProducts.length !== 1 ? "s" : ""}
               </p>
             )}
 
-            {/* PRODUCTS GRID */}
             <div className="grid grid-cols-4 gap-10">
               {loading ? (
-                // Skeleton loaders
                 Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="animate-pulse">
                     <div className="aspect-[3/4] bg-gray-200 rounded-2xl mb-3" />
@@ -283,7 +289,6 @@ export default function Page() {
               )}
             </div>
 
-            {/* PAGINATION */}
             {!loading && totalPages > 1 && (
               <div className="flex justify-start gap-4 mt-14 text-sm">
                 <button
@@ -303,9 +308,7 @@ export default function Page() {
                       key={page}
                       onClick={() => setActivePage(page)}
                       className={`px-2 py-1 font-semibold ${
-                        activePage === page
-                          ? "text-[#C1121F]"
-                          : "text-gray-500 hover:text-[#C1121F]"
+                        activePage === page ? "text-[#C1121F]" : "text-gray-500 hover:text-[#C1121F]"
                       }`}
                     >
                       {page}
@@ -317,9 +320,7 @@ export default function Page() {
                   onClick={() => setActivePage((p) => Math.min(p + 1, totalPages))}
                   disabled={activePage === totalPages}
                   className={`px-2 py-1 font-semibold ${
-                    activePage === totalPages
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "hover:text-[#C1121F]"
+                    activePage === totalPages ? "text-gray-400 cursor-not-allowed" : "hover:text-[#C1121F]"
                   }`}
                 >
                   &gt;

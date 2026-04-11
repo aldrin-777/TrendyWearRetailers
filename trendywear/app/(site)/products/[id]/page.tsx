@@ -46,34 +46,76 @@ function StarDisplay({ rating, size = "md" }: { rating: number; size?: "sm" | "m
     const sizeClass = size === "sm" ? "w-3.5 h-3.5" : size === "lg" ? "w-7 h-7" : "w-5 h-5";
     return (
         <div className="flex gap-0.5">
-            {[1, 2, 3, 4, 5].map((star) => (
-                <svg key={star} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                    fill={star <= Math.round(rating) ? "#F59E0B" : "none"}
-                    stroke="#F59E0B" strokeWidth="1.5" className={sizeClass}>
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
-            ))}
+            {[1, 2, 3, 4, 5].map((star) => {
+                const filled = rating >= star;
+                const half = !filled && rating >= star - 0.5;
+                return (
+                    <svg key={star} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                        className={sizeClass}>
+                        <defs>
+                            <linearGradient id={`half-${star}-${size}`}>
+                                <stop offset="50%" stopColor="#F59E0B" />
+                                <stop offset="50%" stopColor="none" stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
+                        <path
+                            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                            fill={filled ? "#F59E0B" : half ? `url(#half-${star}-${size})` : "none"}
+                            stroke="#F59E0B"
+                            strokeWidth="1.5"
+                        />
+                    </svg>
+                );
+            })}
         </div>
     );
 }
 
+// Star picker with 0.5 increments
 function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
     const [hovered, setHovered] = useState(0);
+
+    const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>, star: number) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        setHovered(x < rect.width / 2 ? star - 0.5 : star);
+    };
+
+    const handleClick = (e: React.MouseEvent<SVGSVGElement>, star: number) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        onChange(x < rect.width / 2 ? star - 0.5 : star);
+    };
+
+    const display = hovered || value;
+
     return (
-        <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-                <button key={star} type="button"
-                    onMouseEnter={() => setHovered(star)}
-                    onMouseLeave={() => setHovered(0)}
-                    onClick={() => onChange(star)}
-                    className="focus:outline-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                        fill={(hovered || value) >= star ? "#F59E0B" : "none"}
-                        stroke="#F59E0B" strokeWidth="1.5" className="w-8 h-8 transition-colors">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        <div className="flex gap-1" onMouseLeave={() => setHovered(0)}>
+            {[1, 2, 3, 4, 5].map((star) => {
+                const filled = display >= star;
+                const half = !filled && display >= star - 0.5;
+                return (
+                    <svg key={star}
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        className="w-8 h-8 transition-colors cursor-pointer"
+                        onMouseMove={(e) => handleMouseMove(e, star)}
+                        onClick={(e) => handleClick(e, star)}>
+                        <defs>
+                            <linearGradient id={`picker-half-${star}`}>
+                                <stop offset="50%" stopColor="#F59E0B" />
+                                <stop offset="50%" stopColor="none" stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
+                        <path
+                            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                            fill={filled ? "#F59E0B" : half ? `url(#picker-half-${star})` : "none"}
+                            stroke="#F59E0B"
+                            strokeWidth="1.5"
+                        />
                     </svg>
-                </button>
-            ))}
+                );
+            })}
         </div>
     );
 }
@@ -81,9 +123,10 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 function RatingSummary({ reviews }: { reviews: Review[] }) {
     const total = reviews.length;
     const avg = total > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / total) * 10) / 10 : 0;
+    // Use 0.5-step buckets mapped to nearest half-star for display
     const counts = [5, 4, 3, 2, 1].map((star) => ({
         star,
-        count: reviews.filter((r) => Math.round(r.rating) === star).length,
+        count: reviews.filter((r) => Math.round(r.rating * 2) / 2 >= star - 0.49 && Math.round(r.rating * 2) / 2 < star + 0.5).length,
     }));
 
     return (
@@ -139,8 +182,8 @@ export default function ProductPage() {
     const [editSubmitting, setEditSubmitting] = useState(false);
     const [editError, setEditError] = useState("");
 
-    const [colors,setColors] = useState<string[]>(["Red","Beige"]);
-    const [sizes,setSizes] = useState<string[]>(["XS", "S", "M", "L", "XL"]);
+    const [colors, setColors] = useState<string[]>(["Red", "Beige"]);
+    const [sizes, setSizes] = useState<string[]>(["XS", "S", "M", "L", "XL"]);
 
     useEffect(() => {
         async function fetchData() {
@@ -167,11 +210,8 @@ export default function ProductPage() {
                 .order("priority", { ascending: false });
 
             const priceGroups: Record<string, number[]> = {};
-
             for (const p of prices ?? []) {
-                if (!priceGroups[p.item_id]) {
-                    priceGroups[p.item_id] = [];
-                }
+                if (!priceGroups[p.item_id]) priceGroups[p.item_id] = [];
                 priceGroups[p.item_id].push(p.price);
             }
 
@@ -198,20 +238,16 @@ export default function ProductPage() {
             const { data: attributeData } = await supabase
                 .from('item_variants')
                 .select('color, item_id, size')
-                .in('item_id', itemIds)
-            
+                .in('item_id', itemIds);
+
             const colorMap: Record<number, Set<string>> = {};
             const sizeMap: Record<number, Set<string>> = {};
-            if (attributeData){
-                for (const c of attributeData){
-                    if (!colorMap[c.item_id]) {
-                        colorMap[c.item_id] = new Set()
-                    }
-                    if (!sizeMap[c.item_id]) {
-                        sizeMap[c.item_id] = new Set()
-                    }
-                    colorMap[c.item_id].add(c.color)
-                    sizeMap[c.item_id].add(c.size)
+            if (attributeData) {
+                for (const c of attributeData) {
+                    if (!colorMap[c.item_id]) colorMap[c.item_id] = new Set();
+                    if (!sizeMap[c.item_id]) sizeMap[c.item_id] = new Set();
+                    colorMap[c.item_id].add(c.color);
+                    sizeMap[c.item_id].add(c.size);
                 }
             }
 
@@ -221,12 +257,10 @@ export default function ProductPage() {
                 );
                 const currentPrice: number = priceGroups[item.id]?.[0] ?? 0;
                 const oldPrice: number | null =
-                priceGroups[item.id]?.length > 1
-                    ? priceGroups[item.id][1]
-                    : null;
+                    priceGroups[item.id]?.length > 1 ? priceGroups[item.id][1] : null;
                 const rd = ratingMap[item.id];
-                const uniqueColors = [...(colorMap[item.id] ?? new Set())]
-                const uniqueSizes = [...(sizeMap[item.id] ?? new Set())]
+                const uniqueColors = [...(colorMap[item.id] ?? new Set())];
+                const uniqueSizes = [...(sizeMap[item.id] ?? new Set())];
 
                 return {
                     id: item.id,
@@ -457,7 +491,7 @@ export default function ProductPage() {
                                     <span className="text-[16px] text-gray-500">({product.reviews} review{product.reviews !== 1 ? "s" : ""})</span>
                                 )}
                             </div>
-                            
+
                             {/* COLORS AND SIZES */}
                             <div className="mb-6">
                                 <p className="text-[24px] font-medium mb-2">Color</p>
@@ -508,8 +542,8 @@ export default function ProductPage() {
                                             setShowModal(true);
                                             return;
                                         }
-                                    
-                                        await addToCart(id,undefined,selectedSize, selectedColor);
+
+                                        await addToCart(id, undefined, selectedSize, selectedColor);
                                         try {
                                             const updatedCart = await fetchShoppingCart();
                                             setCartItems(updatedCart.map((item) => ({ ...item, isEditing: false as const })));
@@ -521,9 +555,9 @@ export default function ProductPage() {
                                     }}>
                                     Add to Cart
                                 </button>
-                                <button 
+                                <button
                                     className="w-full py-3 rounded-full bg-[#003049] text-[#F5F3F3] font-semibold"
-                                    onClick={ async () => {
+                                    onClick={async () => {
                                         if (!selectedColor || !selectedSize) {
                                             setModalMessage("Please select a color and size before adding to cart.");
                                             setShowModal(true);
@@ -533,12 +567,12 @@ export default function ProductPage() {
                                         const checkoutUrl = await createCheckout([{
                                             name: product.name,
                                             amount: product.price * 100,
-                                            quantity: 1
+                                            quantity: 1,
                                             description: `Color: ${selectedColor}, Size: ${selectedSize}`
-                                        }])
+                                        }]);
 
-                                        if(checkoutUrl){
-                                            window.location.href = checkoutUrl; 
+                                        if (checkoutUrl) {
+                                            window.location.href = checkoutUrl;
                                         }
                                     }}>
                                     Buy Now
@@ -626,6 +660,9 @@ export default function ProductPage() {
                                             <div className="mb-4">
                                                 <p className="text-[15px] text-[#535353] mb-2">Your Rating</p>
                                                 <StarPicker value={reviewRating} onChange={setReviewRating} />
+                                                {reviewRating > 0 && (
+                                                    <p className="text-sm text-[#6E6E6E] mt-1">{reviewRating} / 5</p>
+                                                )}
                                             </div>
                                             <div className="mb-4">
                                                 <p className="text-[15px] text-[#535353] mb-2">Your Review</p>
@@ -665,18 +702,17 @@ export default function ProductPage() {
                                     </div>
                                 </div>
 
-                                {/* ✅ SCROLLABLE REVIEWS LIST */}
+                                {/* SCROLLABLE REVIEWS LIST */}
                                 <div className="bg-[#E6E6E6] rounded-[11px] border border-[#D9D9D9] shadow-sm overflow-hidden">
                                     {sortedReviews.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-16 text-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#D9D9D9" strokeWidth="1.5" className="w-12 h-12 mb-3">
-                                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 0 2 2z" />
                                             </svg>
                                             <p className="text-gray-400 text-[16px]">No reviews yet.</p>
                                             <p className="text-gray-400 text-[14px] mt-1">Be the first to share your thoughts!</p>
                                         </div>
                                     ) : (
-                                        /* scrollable area — shows ~3 reviews then scrolls */
                                         <div className="overflow-y-auto max-h-[560px] divide-y divide-gray-300
                                             [&::-webkit-scrollbar]:w-1.5
                                             [&::-webkit-scrollbar-track]:bg-transparent
@@ -691,13 +727,11 @@ export default function ProductPage() {
                                                     <div key={review.id} className="p-6 hover:bg-white/40 transition-colors">
                                                         <div className="flex justify-between items-start gap-4">
                                                             <div className="flex gap-4 flex-1 min-w-0">
-                                                                {/* Avatar */}
                                                                 <div className="relative w-11 h-11 rounded-full overflow-hidden bg-gray-300 flex-shrink-0">
                                                                     <Image src={review.avatar} alt={review.name} fill className="object-cover" />
                                                                 </div>
 
                                                                 <div className="flex-1 min-w-0">
-                                                                    {/* Name + badge */}
                                                                     <div className="flex items-center gap-2 mb-1">
                                                                         <h4 className="font-semibold text-[#003049] text-[16px]">{review.name}</h4>
                                                                         {review.isOwn && (
@@ -705,11 +739,13 @@ export default function ProductPage() {
                                                                         )}
                                                                     </div>
 
-                                                                    {/* EDIT MODE */}
                                                                     {isEditing ? (
                                                                         <div className="mt-2 bg-white border border-[#D9D9D9] rounded-xl p-4">
                                                                             <p className="text-[13px] text-[#535353] mb-2 font-medium">Edit Rating</p>
                                                                             <StarPicker value={editRating} onChange={setEditRating} />
+                                                                            {editRating > 0 && (
+                                                                                <p className="text-sm text-[#6E6E6E] mt-1">{editRating} / 5</p>
+                                                                            )}
                                                                             <p className="text-[13px] text-[#535353] mt-3 mb-2 font-medium">Edit Review</p>
                                                                             <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
                                                                                 rows={3}
@@ -727,7 +763,6 @@ export default function ProductPage() {
                                                                             </div>
                                                                         </div>
                                                                     ) : (
-                                                                        /* VIEW MODE */
                                                                         <>
                                                                             <StarDisplay rating={review.rating} size="sm" />
                                                                             <p className="text-[#535353] text-[15px] leading-6 mt-2">{review.comment}</p>
@@ -757,7 +792,6 @@ export default function ProductPage() {
                                                                 </div>
                                                             </div>
 
-                                                            {/* Date */}
                                                             <span className="text-[13px] text-[#6E6E6E] whitespace-nowrap flex-shrink-0">{review.date}</span>
                                                         </div>
                                                     </div>
