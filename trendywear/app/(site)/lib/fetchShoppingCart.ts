@@ -58,7 +58,15 @@ const user_id = user?.id;
     throw error ?? new Error('No items returned');
   }
 
-  const itemIds = cart_items.map(i => i.variant.id);
+  const itemIds = cart_items
+    .map((i) => {
+      const raw = i.variant as unknown;
+      const v = Array.isArray(raw) ? raw[0] : raw;
+      if (!v || typeof v !== "object" || !("id" in v)) return null;
+      return (v as { id: number }).id;
+    })
+    .filter((id): id is number => id != null);
+
   const now = new Date().toISOString();
 
   const { data: wishlisted } = await supabase
@@ -75,22 +83,53 @@ const user_id = user?.id;
   }
 
   const mapped: ShoppingCartItem[] = cart_items.map((ci) => {
-    const imageUrls = (ci.variant.item.image_id ?? []).map(
+    const raw = ci.variant as unknown;
+    const v = Array.isArray(raw) ? raw[0] : raw;
+    const variant = v as {
+      id: number;
+      size: string;
+      color: string;
+      item:
+        | { id: number; name: string; image_id: string[] | null; tags: string[] | null }
+        | { id: number; name: string; image_id: string[] | null; tags: string[] | null }[]
+        | null;
+    };
+    const itemRaw = variant?.item;
+    const item = Array.isArray(itemRaw) ? itemRaw[0] : itemRaw;
+    if (!item) {
+      return {
+        id: ci.id,
+        name: "Unnamed",
+        item_id: 0,
+        category: "Uncategorized",
+        price: ci.price_at_time,
+        quantity: ci.quantity,
+        size: variant?.size ?? "",
+        color: variant?.color ?? "",
+        image: "/images/placeholder.jpg",
+        isFavorite: false,
+        isEditing: false,
+      };
+    }
+
+    const imageUrls = (item.image_id ?? []).map(
       (imgId: string) =>
         supabase.storage.from(BUCKET_NAME).getPublicUrl(imgId).data.publicUrl
     );
 
+    const tag = item.tags?.[0] ?? "Uncategorized";
+
     return {
       id: ci.id,
-      name: ci.variant.item.name ?? "Unnamed",
-      item_id: ci.variant.item.id,
-      category: ci.variant.item.tags,
+      name: item.name ?? "Unnamed",
+      item_id: item.id,
+      category: tag,
       price: ci.price_at_time,
       quantity: ci.quantity,
-      size: ci.variant.size,
-      color: ci.variant.color,
+      size: variant.size,
+      color: variant.color,
       image: imageUrls.length > 0 ? imageUrls[0] : "/images/placeholder.jpg",
-      isFavorite: wishlistSet.has(ci.variant.item.id),
+      isFavorite: wishlistSet.has(item.id),
       isEditing: false
     };
   });

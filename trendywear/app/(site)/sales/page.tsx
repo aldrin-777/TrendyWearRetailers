@@ -1,7 +1,7 @@
 "use client";
 
 import Breadcrumb from "../components/Breadcrumb";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Search } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import { fetchProducts, Product } from "../lib/fetchProducts";
@@ -10,9 +10,9 @@ import { useSearchParams } from "next/navigation";
 
 const BUCKET_NAME = "images";
 
-export default function Page() {
+function SalesPageContent() {
   const [selectedSize, setSelectedSize] = useState("XS");
-  const [activeCategory, setActiveCategory] = useState();
+  const [activeCategory, setActiveCategory] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
   const [activePage, setActivePage] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
@@ -70,7 +70,7 @@ export default function Page() {
           <FiltersSidebar
             selectedSize={selectedSize}
             onSelectSize={setSelectedSize}
-            activeCategory={activeCategory}
+            activeCategory={activeCategory ?? ""}
             selectedSubCategories={selectedSubCategories}
             onToggleSubCategory={toggleSubCategory}
             selectedColors={selectedColors}
@@ -192,5 +192,19 @@ export default function Page() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8F9FB] flex items-center justify-center text-gray-400">
+          Loading…
+        </div>
+      }
+    >
+      <SalesPageContent />
+    </Suspense>
   );
 }

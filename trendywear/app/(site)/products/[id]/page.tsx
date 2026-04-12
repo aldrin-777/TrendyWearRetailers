@@ -809,7 +809,11 @@ export default function ProductPage() {
                         <h3 className="text-lg font-semibold mb-6">You might like:</h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-8">
                             {getRandomItems(products, 5).map((p) => (
-                                <ProductCard key={p.id} {...p} />
+                                <ProductCard
+                                  key={p.id}
+                                  {...p}
+                                  oldPrice={p.oldPrice ?? undefined}
+                                />
                             ))}
                         </div>
                     </div>

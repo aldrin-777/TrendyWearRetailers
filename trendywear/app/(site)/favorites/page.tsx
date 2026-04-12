@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import ProductCard from "../components/ProductCard";
 import FiltersSidebar from "../components/FilterSidebar";
@@ -9,7 +9,7 @@ import { fetchFavorites, Product } from "../lib/fetchFavorites";
 import { useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 
-export default function Favorites() {
+function FavoritesContent() {
   const [favorites, setFavorites] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,7 +70,7 @@ export default function Favorites() {
           <FiltersSidebar
             selectedSize={selectedSize}
             onSelectSize={setSelectedSize}
-            activeCategory={activeCategory} // Pass active category if your sidebar needs it
+            activeCategory={activeCategory ?? ""}
             selectedSubCategories={selectedSubCategories}
             onToggleSubCategory={toggleSubCategory}
             selectedColors={selectedColors}
@@ -161,7 +161,11 @@ export default function Favorites() {
                     </div>
                   ) : (
                     displayedFavorites.map((fav) => (
-                      <ProductCard key={fav.id} {...fav} />
+                      <ProductCard
+                        key={fav.id}
+                        {...fav}
+                        oldPrice={fav.oldPrice ?? undefined}
+                      />
                     ))
                   )}
                 </div>
@@ -177,5 +181,19 @@ export default function Favorites() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function Favorites() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8F9FB] flex items-center justify-center text-gray-400">
+          Loading…
+        </div>
+      }
+    >
+      <FavoritesContent />
+    </Suspense>
   );
 }

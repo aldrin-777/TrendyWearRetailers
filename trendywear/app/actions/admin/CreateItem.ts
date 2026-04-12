@@ -2,16 +2,12 @@
 
 import { createClient } from '@/utils/supabase/server'
 
-interface PreviewFile extends File {
-  preview: string
-}
-
 export async function createItem(data: {
   name: string
   description: string
   tags: string
-  image_file: PreviewFile | null
-  image_id: string
+  /** Storage object paths under bucket `images` (uploaded from the client). Empty → placeholder. */
+  image_paths: string[] | null
   basePrice: number
 }) {
   const supabase = await createClient()
@@ -21,22 +17,10 @@ export async function createItem(data: {
   console.log('AUTH USER:', user?.id)
   console.log('AUTH ERROR:', authError)
 
-  let imagePathArray = ['placeholder']
-
-  //image upload query
-  if (data.image_file) {
-    const filePath = `Uploaded/${data.name}`
-    const { data:uploadData, error:uploadError } = await supabase.storage
-      .from("images")
-      .upload(filePath, data.image_file, { contentType: data.image_file.type })
-
-    if (uploadError || !uploadData) {
-      console.error("Upload error:", uploadError)
-      throw new Error(uploadError?.message || 'Failed to upload image')
-    }
-
-    imagePathArray = [uploadData.path] 
-  }
+  const imagePathArray: string[] =
+    data.image_paths && data.image_paths.length > 0
+      ? data.image_paths
+      : ['placeholder']
 
   const { data: dbUser, error: dbError } = await supabase
     .from('users')

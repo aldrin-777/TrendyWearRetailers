@@ -9,8 +9,10 @@ import { createPortal } from "react-dom";
 import { createItem } from "@/app/actions/admin/CreateItem";
 import { updateItem } from "@/app/actions/admin/UpdateItem";
 import { deleteItem } from "@/app/actions/admin/DeleteItem";
+import { addSpecialPrice } from "@/app/actions/admin/addSpecialPrice";
 import { createClient } from "@/utils/supabase/client";
-import Dropzone,{FileRejection} from "react-dropzone";
+import Dropzone from "react-dropzone";
+import { ProductImageCropModal } from "./ProductImageCropModal";
 
 const BUCKET_NAME = "images";
 
@@ -201,90 +203,259 @@ function Field({ label, value, onChange, placeholder, textarea, type }: {
   );
 }
 
+const MAX_PRODUCT_IMAGES = 8;
+
+type ProductImageEntry = { id: string; file: File; preview: string };
+
 //  Add Modal ────────────────────────────────────────────────────────────────
 function AddItemModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
-  const [file, setFile] = useState<PreviewFile | null>(null)
-  const [form, setForm] = useState({ name: "", description: "", tags: "", image_id: "", basePrice: "" });
-
-  interface PreviewFile extends File {
-    preview: string
-  }
-
-  const handleSubmit = () => {
-    setError("");
-    if (!form.name || !form.description || !form.basePrice) { setError("Name, description and price are required."); return; }
-    startTransition(async () => {
-      try {
-        const tagsArray = form.tags.split(",").map(t => t.trim()).filter(Boolean);
-        await createItem({
-          name: form.name, description: form.description,
-          tags: JSON.stringify(tagsArray),
-          image_file:file,
-          image_id: form.image_id ? `["${form.image_id}"]` : '["placeholder"]',
-          basePrice: parseFloat(form.basePrice),
-        });
-        onSuccess(); onClose();
-      } catch (e: any) { setError(e.message); }
-    });
-  };
-
-  const handleDrop = (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
-    if (acceptedFiles.length === 0) return // nothing accepted
-
-    // Always take the first file
-    const f = acceptedFiles[0]
-
-    // Add preview URL
-    const previewFile = Object.assign(f, {
-      preview: URL.createObjectURL(f),
-    }) as PreviewFile
-
-    setFile(previewFile)
-  }
+  const [images, setImages] = useState<ProductImageEntry[]>([]);
+  const [cropIndex, setCropIndex] = useState<number | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    tags: "",
+    basePrice: "",
+  });
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
 
   useEffect(() => {
     return () => {
-      if (file) URL.revokeObjectURL(file.preview)
+      imagesRef.current.forEach((img) => URL.revokeObjectURL(img.preview));
+    };
+  }, []);
+
+  const handleSubmit = () => {
+    setError("");
+    if (!form.name || !form.description || !form.basePrice) {
+      setError("Name, description and price are required.");
+      return;
     }
-  }, [file])
+    startTransition(async () => {
+      try {
+        const tagsArray = form.tags.split(",").map((t) => t.trim()).filter(Boolean);
+        const slug =
+          form.name.replace(/[^a-zA-Z0-9-_]/g, "_").slice(0, 48) || "item";
+
+        /** Upload from the browser so the server action stays small (avoids "Failed to fetch" from body limits). */
+        let image_paths: string[] | null = null;
+        if (images.length > 0) {
+          const sb = createClient();
+          const {
+            data: { user },
+            error: authErr,
+          } = await sb.auth.getUser();
+          if (authErr || !user) {
+            throw new Error(
+              "[Upload] You are not signed in. Open /login in this browser, sign in, then try again."
+            );
+          }
+          image_paths = [];
+          const t0 = Date.now();
+          for (let i = 0; i < images.length; i++) {
+            const file = images[i].file;
+            const rawExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+            const ext = ["jpg", "jpeg", "png", "webp", "gif"].includes(rawExt)
+              ? rawExt
+              : "jpg";
+            const filePath = `Uploaded/${t0}-${i}-${slug}.${ext}`;
+            const { data: up, error: upErr } = await sb.storage
+              .from(BUCKET_NAME)
+              .upload(filePath, file, {
+                contentType: file.type || "image/jpeg",
+                upsert: false,
+              });
+            if (upErr || !up) {
+              throw new Error(
+                `[Upload] ${upErr?.message ?? "Failed to upload image"}`
+              );
+            }
+            image_paths.push(up.path);
+          }
+        }
+
+        await createItem({
+          name: form.name,
+          description: form.description,
+          tags: JSON.stringify(tagsArray),
+          image_paths,
+          basePrice: parseFloat(form.basePrice),
+        });
+        onSuccess();
+        onClose();
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Failed to create item";
+        setError(msg.startsWith("[") ? msg : `[Save] ${msg}`);
+      }
+    });
+  };
+
+  const handleDrop = (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+    const room = MAX_PRODUCT_IMAGES - images.length;
+    const next = acceptedFiles.slice(0, Math.max(0, room));
+    setImages((prev) => [
+      ...prev,
+      ...next.map((f) => ({
+        id: crypto.randomUUID(),
+        file: f,
+        preview: URL.createObjectURL(f),
+      })),
+    ]);
+  };
+
+  const removeImage = (id: string) => {
+    setImages((prev) => {
+      const row = prev.find((i) => i.id === id);
+      if (row) URL.revokeObjectURL(row.preview);
+      return prev.filter((i) => i.id !== id);
+    });
+  };
+
+  const replaceFromCrop = (index: number, file: File) => {
+    setImages((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        URL.revokeObjectURL(row.preview);
+        return {
+          ...row,
+          file,
+          preview: URL.createObjectURL(file),
+        };
+      })
+    );
+    setCropIndex(null);
+  };
 
   return (
-    <ModalWrapper onClose={onClose} title="Add New Item">
-      <div className="space-y-4">
-        <Field label="Product Name" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="e.g. Knitted Sweater" />
-        <Field label="Description" value={form.description} onChange={v => setForm({ ...form, description: v })} placeholder="Product description..." textarea />
-        <Field label="Tags (comma separated)" value={form.tags} onChange={v => setForm({ ...form, tags: v })} placeholder="e.g. Women, Tops" />
-        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Image</label>
-        <Dropzone onDrop={handleDrop} accept={{ "image/*": [] }} multiple={true}>
-        {({getRootProps, getInputProps}) => (
-          <section className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 bg-gray-50 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-[#C1121F] transition">
-            <div {...getRootProps()}>
-              <input {...getInputProps()} />
-              <p className="text-gray-300">{file?"Click to Replace Image":"Click to Select Image File"}</p>
-            </div>
-          </section>
-        )}
-        </Dropzone>
-        {file &&(
-          <Image 
-            src={file.preview}
-            alt={file.name}
-            width={200}
-            height={200}
+    <>
+      {cropIndex !== null && images[cropIndex] && (
+        <ProductImageCropModal
+          imageSrc={images[cropIndex].preview}
+          fileName={images[cropIndex].file.name}
+          onClose={() => setCropIndex(null)}
+          onApply={(file) => replaceFromCrop(cropIndex, file)}
+        />
+      )}
+      <ModalWrapper onClose={onClose} title="Add New Item">
+        <div className="space-y-4">
+          <Field
+            label="Product Name"
+            value={form.name}
+            onChange={(v) => setForm({ ...form, name: v })}
+            placeholder="e.g. Knitted Sweater"
           />
-        )}
-        <Field label="Base Price (₱)" value={form.basePrice} onChange={v => setForm({ ...form, basePrice: v })} placeholder="e.g. 999" type="number" />
-        {error && <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg border border-red-100">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="action-btn px-5 py-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-sm font-medium">Cancel</button>
-          <button onClick={handleSubmit} disabled={isPending} className="action-btn px-5 py-2 rounded-xl bg-[#C1121F] text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 pulse-glow">
-            {isPending ? "Creating..." : "Create Item"}
-          </button>
+          <Field
+            label="Description"
+            value={form.description}
+            onChange={(v) => setForm({ ...form, description: v })}
+            placeholder="Product description..."
+            textarea
+          />
+          <Field
+            label="Tags (comma separated)"
+            value={form.tags}
+            onChange={(v) => setForm({ ...form, tags: v })}
+            placeholder="e.g. Women, Tops"
+          />
+
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+              Images (up to {MAX_PRODUCT_IMAGES})
+            </label>
+            <Dropzone
+              onDrop={handleDrop}
+              accept={{ "image/*": [] }}
+              multiple
+              disabled={images.length >= MAX_PRODUCT_IMAGES}
+            >
+              {({ getRootProps, getInputProps }) => (
+                <section className="w-full border border-dashed border-gray-200 rounded-xl px-4 py-6 text-sm bg-gray-50 cursor-pointer hover:border-[#C1121F]/40 transition">
+                  <div {...getRootProps()} className="text-center">
+                    <input {...getInputProps()} />
+                    <p className="text-gray-500">
+                      {images.length >= MAX_PRODUCT_IMAGES
+                        ? "Maximum images reached"
+                        : "Drag images here, or click to select (multiple allowed)"}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Crop & rotate each image after adding if needed
+                    </p>
+                  </div>
+                </section>
+              )}
+            </Dropzone>
+
+            {images.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {images.map((img, index) => (
+                  <li
+                    key={img.id}
+                    className="relative group w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-white shrink-0"
+                  >
+                    <Image
+                      src={img.preview}
+                      alt=""
+                      width={80}
+                      height={80}
+                      className="object-cover w-full h-full"
+                      unoptimized
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => setCropIndex(index)}
+                        className="text-[10px] font-bold text-white bg-[#C1121F] px-1.5 py-0.5 rounded"
+                      >
+                        Crop
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeImage(img.id)}
+                        className="text-[10px] font-bold text-white bg-gray-800 px-1.5 py-0.5 rounded"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <Field
+            label="Base Price (₱)"
+            value={form.basePrice}
+            onChange={(v) => setForm({ ...form, basePrice: v })}
+            placeholder="e.g. 999"
+            type="number"
+          />
+          {error && (
+            <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg border border-red-100">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="action-btn px-5 py-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-sm font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isPending}
+              className="action-btn px-5 py-2 rounded-xl bg-[#C1121F] text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 pulse-glow"
+            >
+              {isPending ? "Creating..." : "Create Item"}
+            </button>
+          </div>
         </div>
-      </div>
-    </ModalWrapper>
+      </ModalWrapper>
+    </>
   );
 }
 

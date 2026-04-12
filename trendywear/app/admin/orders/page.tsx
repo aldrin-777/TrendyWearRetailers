@@ -48,15 +48,19 @@ export default function ProductsPage() {
         .in("id", productIds);
       
       const itemMap: Record<number, { name: string; image: string; tags: string[] }> = {};
-      (data ?? []).forEach(i => {
-        const firstImageId = i.item?.image_id?.[0] ?? null;
+      (data ?? []).forEach((row) => {
+        const raw = row.item as unknown;
+        const item = Array.isArray(raw) ? raw[0] : raw;
+        if (!item || typeof item !== "object") return;
+        const it = item as { name?: string; image_id?: string[] | null; tags?: string[] | null };
+        const firstImageId = it.image_id?.[0] ?? null;
         const imageUrl = firstImageId
           ? supabase.storage.from(BUCKET_NAME).getPublicUrl(firstImageId).data.publicUrl
           : "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf";
-        itemMap[i.id] = {
-          name: i.item.name ?? "Unnamed",
+        itemMap[row.id] = {
+          name: it.name ?? "Unnamed",
           image: imageUrl,
-          tags: i.item.tags ?? [],
+          tags: it.tags ?? [],
         };
       });
 

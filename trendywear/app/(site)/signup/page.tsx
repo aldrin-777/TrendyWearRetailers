@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { MdArrowBack } from "react-icons/md";
 import { createClient } from "@/utils/supabase/client";
+import { evaluatePassword } from "@/lib/passwordStrength";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const passwordCheck = useMemo(() => evaluatePassword(password), [password]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -28,6 +31,13 @@ export default function SignUpPage() {
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+
+    if (!passwordCheck.okToSignUp) {
+      setError(
+        "Password is too weak. Use at least 8 characters with uppercase, lowercase, and a number."
+      );
       return;
     }
 
@@ -174,6 +184,55 @@ export default function SignUpPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="block w-full px-2 py-2 border-0 border-b-2 border-gray-300 bg-transparent focus:ring-0 focus:border-[#c1121f] transition-colors"
             />
+            <div className="mt-2 space-y-1">
+              <div className="flex gap-1 h-1.5 rounded-full overflow-hidden bg-gray-100">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className={`flex-1 transition-colors ${
+                      password.length === 0
+                        ? "bg-gray-200"
+                        : i < Math.ceil(passwordCheck.score)
+                          ? passwordCheck.strength === "weak"
+                            ? "bg-red-400"
+                            : passwordCheck.strength === "fair"
+                              ? "bg-amber-400"
+                              : "bg-emerald-500"
+                          : "bg-gray-200"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">
+                {password.length === 0 ? (
+                  "Use 8+ characters with upper, lower, and a number (add a symbol for a stronger password)."
+                ) : (
+                  <>
+                    Strength:{" "}
+                    <span
+                      className={
+                        passwordCheck.strength === "weak"
+                          ? "text-red-600 font-medium"
+                          : passwordCheck.strength === "fair"
+                            ? "text-amber-600 font-medium"
+                            : "text-emerald-700 font-medium"
+                      }
+                    >
+                      {passwordCheck.strength === "weak"
+                        ? "Weak"
+                        : passwordCheck.strength === "fair"
+                          ? "Fair"
+                          : "Strong"}
+                    </span>
+                    {!passwordCheck.okToSignUp && passwordCheck.hints.length > 0 && (
+                      <span className="block text-red-600 mt-0.5">
+                        {passwordCheck.hints.slice(0, 3).join(" · ")}
+                      </span>
+                    )}
+                  </>
+                )}
+              </p>
+            </div>
           </div>
 
           {/* Reconfirm Password */}

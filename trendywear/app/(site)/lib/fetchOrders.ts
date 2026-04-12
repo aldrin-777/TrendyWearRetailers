@@ -69,16 +69,37 @@ export async function fetchOrders(){
     const items = orderItemsData
         .filter((oi) => oi.orders_id === o.id)
         .map((oi) => {
-            const imageUrls = (oi.variant.item.image_id ?? []).map(
+            const raw = oi.variant as unknown;
+            const v = (Array.isArray(raw) ? raw[0] : raw) as {
+                size: string;
+                color: string;
+                item:
+                    | { id: number; name: string; image_id: string[] | null; tags: string[] | null }
+                    | { id: number; name: string; image_id: string[] | null; tags: string[] | null }[]
+                    | null;
+            };
+            const itemRaw = v?.item;
+            const item = Array.isArray(itemRaw) ? itemRaw[0] : itemRaw;
+            if (!item) {
+                return {
+                    name: "Item",
+                    category: "Uncategorized",
+                    quantity: oi.quantity,
+                    size: v?.size ?? "",
+                    color: v?.color ?? "",
+                    image: "/images/placeholder.jpg",
+                };
+            }
+            const imageUrls = (item.image_id ?? []).map(
                 (imgId: string) =>
                     supabase.storage.from(BUCKET_NAME).getPublicUrl(imgId).data.publicUrl
             );
             return {
-                name: oi.variant.item.name,
-                category: oi.variant.item.tags[0] || 'Uncategorized',
+                name: item.name,
+                category: item.tags?.[0] || 'Uncategorized',
                 quantity: oi.quantity,
-                size: oi.variant.size,
-                color: oi.variant.color,
+                size: v.size,
+                color: v.color,
                 image: imageUrls.length > 0 ? imageUrls[0] : "/images/placeholder.jpg",
             };
         });

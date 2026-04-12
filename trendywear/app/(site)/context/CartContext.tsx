@@ -15,7 +15,7 @@ export type CartItem = {
   color: string, 
   image: string, 
   isFavorite: boolean,
-  isEditing: false 
+  isEditing: boolean;
 };
 
 type CartContextType = {

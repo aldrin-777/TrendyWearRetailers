@@ -20,7 +20,7 @@ import { createCheckout } from '@/app/actions/payrex/createCheckout';
 
 export default function ShoppingCart() {
   const CURRENCY = "PHP";
-  const SHIPPING_FEE_VALUE = 0; 
+  const SHIPPING_FEE_VALUE: number = 0; 
   const DISCOUNT_VALUE = 0;
   const ESTIMATED_DELIVERY = "April 07, 2026";
   const ASPECT_RATIO = "aspect-[6/7]";
@@ -142,14 +142,14 @@ export default function ShoppingCart() {
                           {/* Stepper */}
                           <div className="flex items-center gap-5">
                             <button 
-                              onClick={() => {updateQuantity(item.id, -1);addToCart(item.item_id,-1);}} 
+                              onClick={() => {updateQuantity(item.id, -1);addToCart(item.item_id, -1, item.size, item.color);}} 
                               className="w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-md text-[#C1121F] hover:bg-gray-50 transition-colors"
                             >
                               <MdRemove size={18} />
                             </button>
                             <span className="font-bold text-[#C1121F] text-lg select-none">{item.quantity}</span>
                             <button 
-                              onClick={() => {updateQuantity(item.id, 1);addToCart(item.item_id,1);}} 
+                              onClick={() => {updateQuantity(item.id, 1);addToCart(item.item_id, 1, item.size, item.color);}} 
                               className="w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-md text-[#C1121F] hover:bg-gray-50 transition-colors"
                             >
                               <MdAdd size={18} />
