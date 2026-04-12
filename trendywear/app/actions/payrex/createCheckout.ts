@@ -21,7 +21,7 @@ export async function createCheckout(items: LineItems[]) {
     try {
         const checkoutSession = await payrex.checkoutSessions.create({
             currency: 'PHP',
-            success_url: 'http://localhost:3000/',
+            success_url: 'http://localhost:3000/check-out-success',
             cancel_url: 'http://localhost:3000/',
             payment_methods: ['gcash', 'card', 'maya', 'qrph'], 
             line_items: items

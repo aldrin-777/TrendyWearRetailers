@@ -21,6 +21,15 @@ export type OrderItems = {
 
 const BUCKET_NAME = "images";
 
+const formatDate = (dateString: string | null): string | null => {
+    if (!dateString) return null;
+    return new Date(dateString).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+};
+
 export async function fetchOrders(){
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -85,9 +94,9 @@ export async function fetchOrders(){
 
     return {
         id: o.id,
-        date: o.created_at,
-        dateShipped: o.date_shipped,
-        dateDelivered: o.date_delivered,
+        date: formatDate(o.created_at) || 'N/A',
+        dateShipped: formatDate(o.date_shipped),
+        dateDelivered: formatDate(o.date_delivered),
         status: o.status,
         total: o.total_price,
         items
