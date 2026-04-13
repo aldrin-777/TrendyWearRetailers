@@ -159,7 +159,7 @@ function RatingSummary({ reviews }: { reviews: Review[] }) {
 
 export default function ProductPage() {
     const params = useParams();
-    const id = Number(params.id);
+    const id = Number(params?.id as string);
     const { setCartItems } = useCart();
 
     const [product, setProduct] = useState<Product | null>(null);

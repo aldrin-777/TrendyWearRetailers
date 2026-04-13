@@ -7,6 +7,8 @@ export async function createItem(data: {
   description: string
   tags: string
   image_paths: string[] | null
+  sizes: string[]
+  colors: string[]
   basePrice: number
   sizes: string   // JSON stringified e.g. '["S","M","L"]'
   colors: string  // JSON stringified e.g. '["Red","Blue"]'

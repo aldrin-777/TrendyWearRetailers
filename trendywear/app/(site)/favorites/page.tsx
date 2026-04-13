@@ -23,7 +23,7 @@ function FavoritesContent() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const searchParams = useSearchParams();
-  const initialCategory = searchParams.get('category') || undefined;
+  const initialCategory = searchParams?.get('category') || undefined;
   const [activeCategory, setActiveCategory] = useState<string | undefined>(initialCategory);
 
   const toggleSubCategory = (value: string) => {

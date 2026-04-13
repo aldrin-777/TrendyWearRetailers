@@ -27,7 +27,7 @@ type MessageRow = {
 export default function AdminMessageDetailsPage() {
     const params = useParams();
     const router = useRouter();
-    const id = Number(params.id);
+    const id = Number(params?.id as string);
 
     const [message, setMessage] = useState<MessageRow | null>(null);
     const [loading, setLoading] = useState(true);
