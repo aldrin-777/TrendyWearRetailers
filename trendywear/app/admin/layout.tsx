@@ -21,7 +21,8 @@ import {
   FiLayers,
   FiShoppingBag,
   FiUsers,
-  FiMail
+  FiMail,
+  FiHome
 } from "react-icons/fi";
 
 function AdminContent({ children }: { children: React.ReactNode }) {
@@ -29,6 +30,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
 
   const menuItems = [
     { name: "Dashboard", icon: FiGrid, href: "/admin" },
+    { name: "Homepage", icon: FiHome, href: "/admin/homepage" },
     { name: "Products", icon: FiBox, href: "/admin/products" },
     { name: "Inventory", icon: FiLayers, href: "/admin/inventory" },
     { name: "Orders", icon: FiShoppingBag, href: "/admin/orders" },
