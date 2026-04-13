@@ -4,7 +4,7 @@ import { FiPlus, FiX, FiEdit2, FiTrash2, FiSearch, FiChevronUp, FiChevronDown } 
 import { IoMdRemoveCircleOutline } from "react-icons/io";
 import { LuList } from "react-icons/lu";
 import Image from "next/image";
-import { useState, useEffect, useTransition, useRef } from "react";
+import { useState, useEffect, useTransition, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { createItem } from "@/app/actions/admin/CreateItem";
 import { updateItem } from "@/app/actions/admin/UpdateItem";
@@ -70,7 +70,7 @@ type SortKey = "price" | "name" | "tags" | null;
 type SortDir = "asc" | "desc";
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return (<span className="flex flex-col gap-[1px] opacity-25"><FiChevronUp className="w-3 h-3 -mb-1" /><FiChevronDown className="w-3 h-3" /></span>);
+  if (!active) return (<span className="flex flex-col gap-px opacity-25"><FiChevronUp className="w-3 h-3 -mb-1" /><FiChevronDown className="w-3 h-3" /></span>);
   return dir === "asc" ? <FiChevronUp className="w-4 h-4 spin-in text-[#C1121F]" /> : <FiChevronDown className="w-4 h-4 spin-in text-[#C1121F]" />;
 }
 
@@ -110,7 +110,7 @@ function SkeletonRow() {
 
 function ModalWrapper({ onClose, title, children, wide }: { onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[4px]">
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-xs">
       <div className={`modal-card bg-white rounded-2xl shadow-2xl w-full ${wide ? "max-w-2xl" : "max-w-md"} mx-4 p-6 border border-gray-100 max-h-[90vh] overflow-y-auto`}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="products-title text-xl text-[#1C1D21]">{title}</h2>
@@ -247,12 +247,8 @@ function AddItemModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
               ))}
             </div>
           </div>
-
-          {/* Initial Quantity — shown always, preview updates when sizes/colors selected */}
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-              Initial Stock per Variant
-            </label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Initial Stock per Variant</label>
             <input
               type="number"
               min="0"
@@ -267,7 +263,6 @@ function AddItemModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
               </p>
             )}
           </div>
-
           <div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Images (up to {MAX_PRODUCT_IMAGES})</label>
             <Dropzone onDrop={handleDrop} accept={{ "image/*": [] }} multiple disabled={images.length >= MAX_PRODUCT_IMAGES}>
@@ -276,7 +271,7 @@ function AddItemModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
                   <div {...getRootProps()} className="text-center">
                     <input {...getInputProps()} />
                     <p className="text-gray-500">{images.length >= MAX_PRODUCT_IMAGES ? "Maximum images reached" : "Drag images here, or click to select (multiple allowed)"}</p>
-                    <p className="text-[11px] text-gray-400 mt-1">Crop & rotate each image after adding if needed</p>
+                    <p className="text-[11px] text-gray-400 mt-1">Crop &amp; rotate each image after adding if needed</p>
                   </div>
                 </section>
               )}
@@ -320,7 +315,9 @@ function EditItemModal({ product, onClose, onSuccess }: { product: Product; onCl
         const tagsArray = form.tags.split(",").map(t => t.trim()).filter(Boolean);
         await updateItem({ itemId: product.id, name: form.name, description: form.description, tags: JSON.stringify(tagsArray) });
         onSuccess(); onClose();
-      } catch (e: any) { setError(e.message); }
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to update item");
+      }
     });
   };
 
@@ -369,7 +366,6 @@ function EditQuantityModal({ product, onClose, onSuccess }: { product: Product; 
 
         const withQty = variantData.map(v => ({ ...v, quantity: invMap[v.id] ?? 0 }));
         setVariants(withQty);
-
         const qtyMap: Record<number, number> = {};
         withQty.forEach(v => { qtyMap[v.id] = v.quantity; });
         setQuantities(qtyMap);
@@ -377,6 +373,7 @@ function EditQuantityModal({ product, onClose, onSuccess }: { product: Product; 
       setLoading(false);
     };
     fetchVariants();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
 
   const handleSave = () => {
@@ -384,21 +381,17 @@ function EditQuantityModal({ product, onClose, onSuccess }: { product: Product; 
       try {
         await Promise.all(
           variants.map(v =>
-            supabase
-              .from("inventory")
-              .update({ quantity: quantities[v.id] ?? 0 })
-              .eq("variant_id", v.id)
+            supabase.from("inventory").update({ quantity: quantities[v.id] ?? 0 }).eq("variant_id", v.id)
           )
         );
         onSuccess();
         onClose();
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to save stock");
       }
     });
   };
 
-  // Group by color for a cleaner table layout
   const colors = [...new Set(variants.map(v => v.color))];
   const sizes = [...new Set(variants.map(v => v.size))];
 
@@ -420,7 +413,7 @@ function EditQuantityModal({ product, onClose, onSuccess }: { product: Product; 
                   ))}
                 </tr>
               </thead>
-              <tbody className="space-y-2">
+              <tbody>
                 {sizes.map(size => (
                   <tr key={size} className="border-t border-gray-100">
                     <td className="py-2.5 pr-4">
@@ -448,10 +441,8 @@ function EditQuantityModal({ product, onClose, onSuccess }: { product: Product; 
                 ))}
               </tbody>
             </table>
-            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-              <p className="text-xs text-gray-400">
-                Total stock: <span className="font-bold text-gray-600">{Object.values(quantities).reduce((a, b) => a + b, 0)}</span>
-              </p>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400">Total stock: <span className="font-bold text-gray-600">{Object.values(quantities).reduce((a, b) => a + b, 0)}</span></p>
             </div>
           </div>
         )}
@@ -472,7 +463,7 @@ function DeleteConfirmModal({ product, onClose, onSuccess }: { product: Product;
   const handleDelete = () => {
     startTransition(async () => {
       try { await deleteItem(product.id); onSuccess(); onClose(); }
-      catch (e: any) { setError(e.message); }
+      catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to delete item"); }
     });
   };
 
@@ -480,8 +471,8 @@ function DeleteConfirmModal({ product, onClose, onSuccess }: { product: Product;
     <ModalWrapper onClose={onClose} title="Remove Item">
       <div className="space-y-4">
         <p className="text-gray-500 text-sm leading-relaxed">
-          Are you sure you want to remove <span className="font-bold text-[#1C1D21]">"{product.name}"</span>?<br />
-          <span className="text-xs text-gray-400 mt-1 block">It will be not permanently deleted.</span>
+          Are you sure you want to remove <span className="font-bold text-[#1C1D21]">&ldquo;{product.name}&rdquo;</span>?<br />
+          <span className="text-xs text-gray-400 mt-1 block">This will permanently delete the item and all its variants.</span>
         </p>
         {error && <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg border border-red-100">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
@@ -512,7 +503,9 @@ function SpecialPriceModal({ product, onClose, onSuccess }: { product: Product; 
       try {
         await addSpecialPrice({ itemId: product.id, specialPrice: parseFloat(form.specialPrice), validTo: form.validTo });
         onSuccess(); onClose();
-      } catch (e: any) { setError(e.message); }
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to add special price");
+      }
     });
   };
 
@@ -619,7 +612,8 @@ export default function ProductsPage() {
   const [editQuantityProduct, setEditQuantityProduct] = useState<Product | null>(null);
   const [isPending, startTransition]                  = useTransition();
 
-  const fetchProducts = async (page = 1, query = "") => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchProducts = useCallback(async (page = 1, query = "") => {
     setLoading(true);
     const from = (page - 1) * ITEMS_PER_PAGE;
     const to   = from + ITEMS_PER_PAGE - 1;
@@ -680,10 +674,13 @@ export default function ProductsPage() {
       setTotalPages(Math.max(1, Math.ceil((count ?? 0) / ITEMS_PER_PAGE)));
     }
     setLoading(false);
-  };
+  }, []); // supabase client is stable, intentionally omitted
 
-  useEffect(() => { fetchProducts(currentPage, search); }, [currentPage]);
-  useEffect(() => { const t = setTimeout(() => { setCurrentPage(1); fetchProducts(1, search); }, 400); return () => clearTimeout(t); }, [search]);
+  useEffect(() => { fetchProducts(currentPage, search); }, [currentPage, fetchProducts, search]);
+  useEffect(() => {
+    const t = setTimeout(() => { setCurrentPage(1); fetchProducts(1, search); }, 400);
+    return () => clearTimeout(t);
+  }, [search, fetchProducts]);
 
   const handleSort = (key: SortKey) => {
     if (!key) return;
@@ -693,11 +690,10 @@ export default function ProductsPage() {
 
   const sortedProducts = [...products].sort((a, b) => {
     if (!sortKey) return 0;
-    let av: any, bv: any;
+    let av: string | number, bv: string | number;
     if (sortKey === "price") { av = a.currentPrice ?? 0; bv = b.currentPrice ?? 0; }
     else if (sortKey === "name") { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
-    else if (sortKey === "tags") { av = a.tags?.[0]?.toLowerCase() ?? ""; bv = b.tags?.[0]?.toLowerCase() ?? ""; }
-    else return 0;
+    else { av = a.tags?.[0]?.toLowerCase() ?? ""; bv = b.tags?.[0]?.toLowerCase() ?? ""; }
     return sortDir === "asc" ? (av < bv ? -1 : av > bv ? 1 : 0) : (av > bv ? -1 : av < bv ? 1 : 0);
   });
 
@@ -759,7 +755,7 @@ export default function ProductsPage() {
       ) : (
         <div className="space-y-2 mb-12">
           {sortedProducts.map((product, i) => (
-            <div key={product.id} style={{ animationDelay: `${i * 35}ms` }} className={`row-in product-row grid grid-cols-12 items-center rounded-2xl px-6 py-4 ${selected.includes(product.id) ? "bg-red-50 outline outline-1 outline-red-200" : "bg-[#F9FAFB]"}`}>
+            <div key={product.id} style={{ animationDelay: `${i * 35}ms` }} className={`row-in product-row grid grid-cols-12 items-center rounded-2xl px-6 py-4 ${selected.includes(product.id) ? "bg-red-50 ring-1 ring-red-200" : "bg-[#F9FAFB]"}`}>
               <div className="col-span-4 flex items-center gap-4">
                 <input type="checkbox" checked={selected.includes(product.id)} onChange={() => toggleSelect(product.id)} className="w-4 h-4 accent-[#C1121F] cursor-pointer shrink-0" />
                 <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm overflow-hidden shrink-0">
