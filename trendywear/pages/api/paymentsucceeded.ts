@@ -6,7 +6,7 @@ type ResponseData = { message: string }
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ResponseData>) {
     const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
     try {
         // Check if body exists
@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         if (!amount || isNaN(Number(amount))) {
             return res.status(400).json({ message: "Invalid or missing amount" });
         }
-        const totalPrice = Math.round(Number(amount) * 100) / 100;
+        const totalPrice = Number(amount) / 100;
         const userId = body.data?.metadata?.user_id ?? "No User ID in metadata";
 
         if (req.method === 'POST') {
