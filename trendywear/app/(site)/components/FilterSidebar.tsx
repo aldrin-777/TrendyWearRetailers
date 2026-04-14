@@ -101,7 +101,7 @@ export default function FiltersSidebar({
                 <p className="text-[22px] font-medium mb-3">Size</p>
                 <div className="flex gap-2">
                     {["XS", "S", "M", "L", "XL"].map((size) => (
-                        <button key={size} type="button" onClick={() => onSelectSize(size)}
+                        <button key={size} type="button" onClick={() => onSelectSize(size === selectedSize ? "" : size)}
                             className={`w-9 h-9 rounded-full text-xs border flex items-center justify-center ${
                                 size === selectedSize
                                     ? "bg-[#A52A2A] border-[#A52A2A] text-white"
