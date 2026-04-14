@@ -6,6 +6,7 @@ import { LuTruck, LuX, LuPackageCheck } from "react-icons/lu";
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { proceedDelivery } from "@/app/actions/admin/proceedDelivery";
 
 const BUCKET_NAME = "images";
 const ITEMS_PER_PAGE = 10;
@@ -15,12 +16,13 @@ type OrderRow = {
   order_id: number;
   name: string;
   image: string;
+  status: any;
   quantity: number;
   price: number;
   tags: string[];
 };
 
-type DeliveryStatus = "pending" | "processing" | "out_for_delivery" | "delivered";
+type DeliveryStatus = "Shipped" | "In Transit" | "Delivered" | "";
 
 type DeliveryInfo = {
   status: DeliveryStatus;
@@ -47,7 +49,7 @@ export default function ProductsPage() {
   );
 
   const [deliveryForm, setDeliveryForm] = useState<DeliveryInfo>({
-    status: "processing",
+    status: "",
     courier: "",
     trackingNumber: "",
     estimatedDate: "",
@@ -62,12 +64,12 @@ export default function ProductsPage() {
     // Fetch order_items with count
     const { data: orderItems, count } = await supabase
       .from("order_items")
-      .select("id, orders_id, variant_id, quantity, price_at_checkout", {
+      .select("id, orders_id, variant_id, quantity, price_at_checkout,orders(status)", {
         count: "exact",
       })
       .order("id", { ascending: false })
       .range(from, to);
-
+    
     if (orderItems && orderItems.length > 0) {
       const productIds = [...new Set(orderItems.map((i) => i.variant_id))];
 
@@ -105,6 +107,7 @@ export default function ProductsPage() {
           tags: it.tags ?? [],
         };
       });
+      
 
       const mapped = orderItems.map((oi) => ({
         id: oi.id,
@@ -113,6 +116,7 @@ export default function ProductsPage() {
         image:
           itemMap[oi.variant_id]?.image ??
           "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf",
+        status: (Array.isArray(oi.orders) ? oi.orders[0] : oi.orders)?.status ?? "",
         quantity: oi.quantity ?? 0,
         price: oi.price_at_checkout ?? 0,
         tags: itemMap[oi.variant_id]?.tags ?? [],
@@ -160,7 +164,7 @@ export default function ProductsPage() {
 
     setActiveOrder(product);
     setDeliveryForm({
-      status: existing.status === "pending" ? "processing" : existing.status,
+      status: product.status as DeliveryStatus,
       courier: existing.courier,
       trackingNumber: existing.trackingNumber,
       estimatedDate: existing.estimatedDate,
@@ -174,7 +178,7 @@ export default function ProductsPage() {
     setIsDeliveryModalOpen(false);
     setActiveOrder(null);
     setDeliveryForm({
-      status: "processing",
+      status: "",
       courier: "",
       trackingNumber: "",
       estimatedDate: "",
@@ -184,40 +188,30 @@ export default function ProductsPage() {
 
   const saveDeliveryDetails = () => {
     if (!activeOrder) return;
-
-    setDeliveryMap((prev) => ({
-      ...prev,
-      [activeOrder.order_id]: {
-        ...deliveryForm,
-      },
-    }));
-
     closeDeliveryModal();
   };
 
-  const markAsDelivered = (product: OrderRow) => {
-    const existing = getDeliveryInfo(product.order_id);
-
-    setDeliveryMap((prev) => ({
-      ...prev,
-      [product.order_id]: {
-        ...existing,
-        status: "delivered",
-      },
-    }));
-
-    setOpenMenuId(null);
+  const markAsDelivered = async (product: OrderRow) => {
+    let cancelled = false;
+    await proceedDelivery(product.order_id);
+    fetchOrderItems(currentPage).then((result) => {
+      if (cancelled) return;
+      setProducts(result.items);
+      setTotalPages(Math.max(1, Math.ceil(result.count / ITEMS_PER_PAGE)));
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   };
 
   const getStatusClasses = (status: DeliveryStatus) => {
     switch (status) {
-      case "pending":
+      case "Shipped":
         return "bg-gray-100 text-gray-600";
-      case "processing":
+      case "In Transit":
         return "bg-yellow-100 text-yellow-700";
-      case "out_for_delivery":
-        return "bg-violet-100 text-violet-700";
-      case "delivered":
+      case "Delivered":
         return "bg-emerald-100 text-emerald-700";
       default:
         return "bg-gray-100 text-gray-600";
@@ -226,16 +220,14 @@ export default function ProductsPage() {
 
   const getStatusLabel = (status: DeliveryStatus) => {
     switch (status) {
-      case "pending":
-        return "Pending";
-      case "processing":
-        return "Processing";
-      case "out_for_delivery":
-        return "Out for Delivery";
-      case "delivered":
+      case "Shipped":
+        return "Shipped";
+      case "In Transit":
+        return "In Transit";
+      case "Delivered":
         return "Delivered";
       default:
-        return "Pending";
+        return "Shipped";
     }
   };
 
@@ -293,17 +285,6 @@ export default function ProductsPage() {
             <span>Qty.</span>
           </div>
 
-          {/* Rating */}
-          <div className="col-span-1 flex items-center justify-center space-x-2 text-[14px] text-[#8181A5]">
-            <button
-              className="p-1 rounded-full hover:bg-gray-200 transition-colors flex items-center justify-center"
-              aria-label="Sort Rating"
-            >
-              <LuArrowUpDown className="w-4 h-4 text-gray-500" />
-            </button>
-            <span>Rating</span>
-          </div>
-
           {/* Delivery */}
           <div className="col-span-2 flex items-center justify-center space-x-2 text-[14px] text-[#8181A5]">
             <button
@@ -349,8 +330,6 @@ export default function ProductsPage() {
             <p className="text-gray-400 text-sm px-6">No order items yet.</p>
           ) : (
             products.map((product) => {
-              const deliveryInfo = getDeliveryInfo(product.order_id);
-
               return (
                 <div
                   key={product.id}
@@ -401,26 +380,20 @@ export default function ProductsPage() {
                     </span>
                   </div>
 
-                  {/* Rating */}
-                  <div className="col-span-1 text-center text-sm">
-                    <p className="font-semibold text-[16px] text-[#1C1D21]">—</p>
-                    <span className="text-[#8181A5] text-[14px]">Rating</span>
-                  </div>
-
                   {/* Delivery */}
                   <div className="col-span-2 text-center text-sm">
                     <div className="flex flex-col items-center gap-1">
                       <span
                         className={`${getStatusClasses(
-                          deliveryInfo.status
+                          product.status as DeliveryStatus
                         )} px-3 py-1 rounded-lg text-[12px] font-semibold`}
                       >
-                        {getStatusLabel(deliveryInfo.status)}
+                        {getStatusLabel(product.status as DeliveryStatus)}
                       </span>
 
-                      {deliveryInfo.trackingNumber ? (
+                      {getDeliveryInfo(product.order_id).trackingNumber ? (
                         <span className="text-[#8181A5] text-[11px]">
-                          {deliveryInfo.trackingNumber}
+                          {getDeliveryInfo(product.order_id).trackingNumber}
                         </span>
                       ) : (
                         <span className="text-[#8181A5] text-[11px]">
