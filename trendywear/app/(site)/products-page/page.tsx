@@ -75,7 +75,12 @@ function ProductsPageContent() {
         if (!hasColor) return false;
       }
 
-      // ✅ OR logic: show product if it matches ANY selected subcategory
+
+        if (selectedSize && selectedSize !== "") {
+            if (!p.sizes.includes(selectedSize)) return false;
+        }
+
+      
       if (selectedSubCategories.length > 0) {
         const productTags: string[] = Array.isArray(p.tags) ? p.tags : [];
         const hasAnySub = selectedSubCategories.some((sub) => productTags.includes(sub));
@@ -84,7 +89,7 @@ function ProductsPageContent() {
 
       return true;
     });
-  }, [allProducts, price, minRating, selectedColors, selectedSubCategories]);
+  }, [allProducts, price, minRating, selectedColors, selectedSubCategories, selectedSize]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
   const paginatedProducts = filteredProducts.slice(
@@ -94,7 +99,7 @@ function ProductsPageContent() {
 
   useEffect(() => {
     setActivePage(1);
-  }, [price, minRating, selectedColors, selectedFits, selectedSubCategories]);
+}, [price, minRating, selectedColors, selectedSubCategories, selectedSize]);
 
   const toggleSubCategory = (value: string) => {
     setSelectedSubCategories((prev) =>

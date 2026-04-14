@@ -12,6 +12,7 @@ export type Product = {
     reviews: number;
     is_liked: boolean;
     colors: string[];
+    sizes: string[]; // 👈 add this
     tags: string[];
 };
 
@@ -97,19 +98,22 @@ export async function fetchProducts(
         }
     }
 
-    // ✅ Fetch colors from item_variants
     const { data: variants } = await supabase
-        .from("item_variants")
-        .select("item_id, color")
-        .in("item_id", itemIds);
+    .from("item_variants")
+    .select("item_id, color, size")
+    .in("item_id", itemIds);
 
-    const colorMap: Record<number, Set<string>> = {};
-    if (variants) {
-        for (const v of variants) {
-            if (!colorMap[v.item_id]) colorMap[v.item_id] = new Set();
-            colorMap[v.item_id].add(v.color);
-        }
+const colorMap: Record<number, Set<string>> = {};
+const sizeMap: Record<number, Set<string>> = {};
+if (variants) {
+    for (const v of variants) {
+        if (!colorMap[v.item_id]) colorMap[v.item_id] = new Set();
+        colorMap[v.item_id].add(v.color);
+
+        if (!sizeMap[v.item_id]) sizeMap[v.item_id] = new Set();
+        sizeMap[v.item_id].add(v.size);
     }
+}
 
     const mapped: Product[] = items.map((item) => {
         const imageUrls = (item.image_id ?? []).map(
@@ -132,6 +136,7 @@ export async function fetchProducts(
             reviews: rd?.count ?? 0,
             is_liked: wishlistSet.has(item.id),
             colors: [...(colorMap[item.id] ?? new Set())],
+            sizes: [...(sizeMap[item.id] ?? new Set())],
             tags: item.tags ?? [],
         };
     });
