@@ -26,7 +26,7 @@ export async function removeFromCart(itemId: number) {
     .from('cart_items')
     .delete()
     .eq('cart_id', cart.id)
-    .eq('item_id', itemId)
+    .eq('id', itemId)
 
   if (error) throw new Error(error.message)
 

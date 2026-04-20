@@ -48,7 +48,7 @@ export default function ShoppingCart() {
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [voucherCode, setVoucherCode] = useState("");
-  const [voucherDiscount, setVoucherDiscount] = useState(1);
+  const [voucherDiscount, setVoucherDiscount] = useState(0);
   const [DISCOUNT_VALUE, setDISCOUNT_VALUE] = useState(0);
 
   // --- DERIVED CALCULATIONS ---
@@ -91,8 +91,14 @@ export default function ShoppingCart() {
     const result = await availVoucher(voucherCode, subtotal);
     if (result?.success) {
       setModalType("success");
-      setVoucherDiscount(result.discount);
-      modifyDiscountAmount();
+
+      if (result.discount){
+        setVoucherDiscount(result.discount);
+
+        const discountAmount = subtotal * result.discount;
+        setDISCOUNT_VALUE(discountAmount);
+      }
+      
       setModalMessage(result.message);
       setShowModal(true);
     } else {
@@ -101,11 +107,6 @@ export default function ShoppingCart() {
       setShowModal(true);
     }
   };
-
-  const modifyDiscountAmount = () => {
-    const discountAmount = subtotal * voucherDiscount;
-    setDISCOUNT_VALUE(discountAmount);
-  }
 
   const proceedToCheckout = async () =>{
     const checkoutUrl = await createCheckout(
@@ -119,7 +120,6 @@ export default function ShoppingCart() {
         };
       })
     )
-    console.log("Checkout URL:", checkoutUrl);  
 
     if(checkoutUrl){
       window.location.href = checkoutUrl; 
@@ -151,7 +151,6 @@ export default function ShoppingCart() {
             <div className="flex flex-col">
               {cartItems.length > 0 ? (
                 cartItems.map((item) => {
-                  console.log(item);
                   const itemTotal = item.price * item.quantity;
                   
                   return (
@@ -244,7 +243,7 @@ export default function ShoppingCart() {
                             </button>
                             <div className="w-[2px] h-6 bg-gray-400 mx-1"></div>
                             <button 
-                              onClick={() => {removeItem(item.id);removeFromCart(item.item_id)}} 
+                              onClick={() => {removeItem(item.id);removeFromCart(item.id);}} 
                               className="text-[#003049] hover:text-red-600 transition-colors"
                             >
                               <MdDeleteOutline size={28} />
