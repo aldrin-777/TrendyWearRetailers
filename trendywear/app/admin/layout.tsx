@@ -36,26 +36,12 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   const [adminName, setAdminName] = useState<string>("Admin");
 
   useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchAdmin = async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("username")
-        .eq("id", user.id)
-        .single();
-
-      if (error) {
-        console.error(error);
-        setAdminName("Admin");
-        return;
-      }
-
-      setAdminName(data?.username || "Admin");
-    };
-
-    fetchAdmin();
-  }, [user?.id, supabase]);
+    if (!user) return;
+    
+    // Get username from user metadata or email
+    const username = user.user_metadata?.username || user.email?.split("@")[0] || "Admin";
+    setAdminName(username);
+  }, [user]);
 
   const menuItems = [
     { name: "Dashboard", icon: FiGrid, href: "/admin" },
