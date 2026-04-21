@@ -2,6 +2,8 @@
 
 import { Josefin_Sans } from "next/font/google";
 import "../(site)/globals.css";
+import { useState, useEffect } from "react";
+import { createClient } from "@/utils/supabase/client";
 
 const josefinSans = Josefin_Sans({
   variable: "--font-josefin-sans",
@@ -12,6 +14,7 @@ const josefinSans = Josefin_Sans({
 import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useUser, UserProvider } from "../(site)/context/UserContext";
 import {
   FiSearch,
   FiSettings,
@@ -25,8 +28,34 @@ import {
   FiHome
 } from "react-icons/fi";
 
+const supabase = createClient();
+
 function AdminContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user } = useUser();
+  const [adminName, setAdminName] = useState<string>("Admin");
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchAdmin = async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        console.error(error);
+        setAdminName("Admin");
+        return;
+      }
+
+      setAdminName(data?.username || "Admin");
+    };
+
+    fetchAdmin();
+  }, [user?.id, supabase]);
 
   const menuItems = [
     { name: "Dashboard", icon: FiGrid, href: "/admin" },
@@ -89,7 +118,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
               </div>
               <div className="text-left">
                 <p className="text-sm font-bold text-gray-800 leading-tight">
-                  Jinjer Ice Scramble
+                  {adminName}
                 </p>
                 <span className="text-[10px] bg-yellow-400 text-white px-2 py-1.5 rounded font-bold uppercase tracking-wider">
                   Admin
@@ -130,7 +159,9 @@ export default function AdminLayout({
   return (
     <html lang="en">
       <body className={`${josefinSans.variable} antialiased`}>
-        <AdminContent>{children}</AdminContent>
+        <UserProvider>
+          <AdminContent>{children}</AdminContent>
+        </UserProvider>
       </body>
     </html>
   );
