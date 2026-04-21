@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { addToWishlist } from "@/app/actions/user/AddToWishlist";
 import { removeFromWishlist } from "@/app/actions/user/RemoveFromWishlist";
 import { fetchFavorites } from "../lib/fetchFavorites";
+import { fetchHomepageTextConfig } from "@/lib/homepageContent";
 import TopModal from "../components/TopModal";
 
 const BUCKET_NAME = "images";
@@ -23,6 +24,10 @@ type MensProduct = {
 export default function MensWear() {
   const [mensWearData, setMensWearData] = useState<MensProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sectionTitle, setSectionTitle] = useState("Men's Wear");
+  const [sectionSubtitle, setSectionSubtitle] = useState("Made for him.");
+  const [sectionButtonText, setSectionButtonText] = useState("View All Product");
+  const [sectionAccent, setSectionAccent] = useState("#003049");
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [modal, setModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const router = useRouter();
@@ -30,6 +35,11 @@ export default function MensWear() {
   useEffect(() => {
     async function fetchMensWear() {
       const supabase = createClient();
+      const textConfig = await fetchHomepageTextConfig(supabase);
+      setSectionTitle(textConfig.menTitle);
+      setSectionSubtitle(textConfig.menSubtitle);
+      setSectionButtonText(textConfig.menButtonText);
+      setSectionAccent(textConfig.menBackgroundAccent || "#003049");
 
       const { data: items, error } = await supabase
         .from("items")
@@ -200,7 +210,7 @@ export default function MensWear() {
 
                   {/* TEXT */}
                   <div className="text-white space-y-1">
-                    <h3 className="font-medium text-[#003049] text-xl tracking-wide truncate">{item.name}</h3>
+                    <h3 className="font-medium text-xl tracking-wide truncate" style={{ color: sectionAccent }}>{item.name}</h3>
                     <p className="font-regular text-[#1E293B]">{item.price}</p>
                   </div>
                 </div>
@@ -216,16 +226,16 @@ export default function MensWear() {
         <div className="w-full lg:w-[400px] pl-8 lg:pl-0 flex flex-col justify-between lg:items-end lg:text-right shrink-0 lg:min-h-[460px] order-1 lg:order-2">
           <div className="space-y-4 pt-4">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-wide text-[#003049]">
-              Men&apos;s Wear
+              {sectionTitle}
             </h2>
             <p className="text-3xl font-regular tracking-wide opacity-90">
-              Made for him.
+              {sectionSubtitle}
             </p>
           </div>
           
           <div className="pt-12 lg:pt-0 pb-1 border-b inline-flex items-center gap-2 w-fit cursor-pointer group">
             <Link href="/products-page?category=Men">
-              <span className="text-xl font-medium group-hover:text-black-100 transition">View All Product</span>
+              <span className="text-xl font-medium group-hover:text-black-100 transition">{sectionButtonText}</span>
             </Link>
             <MdArrowOutward className="text-2xl group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform ml-4" />
           </div>

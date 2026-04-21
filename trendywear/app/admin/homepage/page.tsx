@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Dropzone from "react-dropzone";
 import {
@@ -21,6 +21,16 @@ import {
     FiUpload,
 } from "react-icons/fi";
 import { ProductImageCropModal } from "../products/ProductImageCropModal";
+import { createClient } from "@/utils/supabase/client";
+import {
+    DEFAULT_HOMEPAGE_TEXT_CONFIG,
+    fetchHomepageImageConfig,
+    fetchHomepageTextConfig,
+    saveHomepageImageConfig,
+    saveHomepageTextConfig,
+    type HomepageImageConfig,
+    type HomepageTextConfig,
+} from "@/lib/homepageContent";
 
 type SectionCardProps = {
     icon: React.ReactNode;
@@ -168,11 +178,13 @@ function SectionCard({
 function TextInput({
     label,
     placeholder,
-    defaultValue,
+    value,
+    onChange,
 }: {
     label: string;
     placeholder?: string;
-    defaultValue?: string;
+    value: string;
+    onChange: (value: string) => void;
 }) {
     return (
         <label className="block">
@@ -182,7 +194,8 @@ function TextInput({
             <input
                 type="text"
                 placeholder={placeholder}
-                defaultValue={defaultValue}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
                 className="h-14 w-full rounded-[18px] border border-[#e8ddd8] bg-white px-5 text-[15px] text-[#111827] outline-none transition focus:border-[#C1121F]/50 focus:ring-4 focus:ring-[#C1121F]/10 md:text-[16px]"
             />
         </label>
@@ -192,12 +205,14 @@ function TextInput({
 function TextArea({
     label,
     placeholder,
-    defaultValue,
+    value,
+    onChange,
     rows = 5,
 }: {
     label: string;
     placeholder?: string;
-    defaultValue?: string;
+    value: string;
+    onChange: (value: string) => void;
     rows?: number;
 }) {
     return (
@@ -208,7 +223,8 @@ function TextArea({
             <textarea
                 rows={rows}
                 placeholder={placeholder}
-                defaultValue={defaultValue}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
                 className="w-full rounded-[18px] border border-[#e8ddd8] bg-white px-5 py-4 text-[15px] text-[#111827] outline-none transition focus:border-[#C1121F]/50 focus:ring-4 focus:ring-[#C1121F]/10 md:rounded-[20px] md:text-[16px]"
             />
         </label>
@@ -219,20 +235,22 @@ function UploadCard({
     title,
     description,
     compact = false,
+    imageUrl,
+    onUploadCropped,
+    onRemove,
 }: {
     title: string;
     description: string;
     compact?: boolean;
+    imageUrl?: string | null;
+    onUploadCropped: (file: File) => Promise<void>;
+    onRemove?: () => void;
 }) {
-    const [selectedImage, setSelectedImage] = useState<{
-        id: string;
-        file: File;
-        preview: string;
-    } | null>(null);
     const [sourceImage, setSourceImage] = useState<{
         file: File;
         preview: string;
     } | null>(null);
+    const [uploading, setUploading] = useState(false);
 
     const onSelectFile = (file: File) => {
         const preview = URL.createObjectURL(file);
@@ -242,20 +260,6 @@ function UploadCard({
     const handleDrop = (acceptedFiles: File[]) => {
         if (!acceptedFiles.length) return;
         onSelectFile(acceptedFiles[0]);
-    };
-
-    const replaceFromCrop = (file: File) => {
-        setSelectedImage((prev) => {
-            if (prev) URL.revokeObjectURL(prev.preview);
-            return { id: crypto.randomUUID(), file, preview: URL.createObjectURL(file) };
-        });
-    };
-
-    const clearSelectedImage = () => {
-        setSelectedImage((prev) => {
-            if (prev) URL.revokeObjectURL(prev.preview);
-            return null;
-        });
     };
 
     return (
@@ -269,7 +273,8 @@ function UploadCard({
                         setSourceImage(null);
                     }}
                     onApply={(file) => {
-                        replaceFromCrop(file);
+                        setUploading(true);
+                        onUploadCropped(file).finally(() => setUploading(false));
                         URL.revokeObjectURL(sourceImage.preview);
                         setSourceImage(null);
                     }}
@@ -302,25 +307,28 @@ function UploadCard({
                                 <button
                                     type="button"
                                     onClick={open}
+                                    disabled={uploading}
                                     className="inline-flex items-center gap-2 rounded-full bg-[#C1121F] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
                                 >
                                     <FiUpload size={15} />
-                                    Upload image
+                                    {uploading ? "Uploading..." : "Upload image"}
                                 </button>
 
                                 <button
                                     type="button"
                                     onClick={open}
+                                    disabled={uploading}
                                     className="inline-flex items-center gap-2 rounded-full border border-[#e4d7d2] bg-white px-5 py-2.5 text-sm font-medium text-[#374151] transition hover:border-[#C1121F]/30 hover:text-[#C1121F]"
                                 >
                                     <FiEdit3 size={15} />
                                     Replace
                                 </button>
 
-                                {selectedImage && (
+                                {imageUrl && onRemove && (
                                     <button
                                         type="button"
-                                        onClick={clearSelectedImage}
+                                        onClick={onRemove}
+                                        disabled={uploading}
                                         className="inline-flex items-center gap-2 rounded-full border border-[#f1d1d1] bg-white px-5 py-2.5 text-sm font-medium text-[#C1121F] transition hover:bg-[#fff6f6]"
                                     >
                                         <FiTrash2 size={15} />
@@ -345,9 +353,9 @@ function UploadCard({
                         compact ? "aspect-[4/3]" : "aspect-[16/10]"
                     }`}
                 >
-                    {selectedImage ? (
+                    {imageUrl ? (
                         <Image
-                            src={selectedImage.preview}
+                            src={imageUrl}
                             alt={title}
                             width={800}
                             height={600}
@@ -369,10 +377,18 @@ function SlideEditor({
     slide,
     isOpen,
     onToggle,
+    onSlideChange,
+    imageUrl,
+    onUploadImage,
+    onRemoveImage,
 }: {
     slide: HeroSlide;
     isOpen: boolean;
     onToggle: () => void;
+    onSlideChange: (patch: Partial<HeroSlide>) => void;
+    imageUrl?: string | null;
+    onUploadImage: (file: File) => Promise<void>;
+    onRemoveImage: () => void;
 }) {
     return (
         <div className="overflow-hidden rounded-[26px] border border-[#ece3de] bg-white">
@@ -407,22 +423,26 @@ function SlideEditor({
                         <div className="grid gap-5 xl:grid-cols-2">
                             <TextInput
                                 label="Slide Title"
-                                defaultValue={slide.title}
+                                value={slide.title}
+                                onChange={(value) => onSlideChange({ title: value })}
                                 placeholder="Slide title"
                             />
                             <TextInput
                                 label="Slide Subtitle"
-                                defaultValue={slide.subtitle}
+                                value={slide.subtitle}
+                                onChange={(value) => onSlideChange({ subtitle: value })}
                                 placeholder="Slide subtitle"
                             />
                             <TextInput
                                 label="Button Text"
-                                defaultValue={slide.buttonText}
+                                value={slide.buttonText}
+                                onChange={(value) => onSlideChange({ buttonText: value })}
                                 placeholder="Button text"
                             />
                             <TextInput
                                 label="Button Link"
-                                defaultValue={slide.buttonLink}
+                                value={slide.buttonLink}
+                                onChange={(value) => onSlideChange({ buttonLink: value })}
                                 placeholder="Button link"
                             />
                         </div>
@@ -430,6 +450,9 @@ function SlideEditor({
                         <UploadCard
                             title="Main Slide Image"
                             description="Large banner image for this carousel slide."
+                            imageUrl={imageUrl}
+                            onUploadCropped={onUploadImage}
+                            onRemove={onRemoveImage}
                         />
                     </div>
                 </div>
@@ -438,7 +461,21 @@ function SlideEditor({
     );
 }
 
-function HeroSideCardEditor({ card }: { card: HeroSideCard }) {
+function HeroSideCardEditor({
+    card,
+    cardText,
+    onCardTextChange,
+    imageUrl,
+    onUploadImage,
+    onRemoveImage,
+}: {
+    card: HeroSideCard;
+    cardText: string;
+    onCardTextChange: (value: string) => void;
+    imageUrl?: string | null;
+    onUploadImage: (file: File) => Promise<void>;
+    onRemoveImage: () => void;
+}) {
     return (
         <div className="space-y-5 rounded-[24px] border border-[#ece3de] bg-white p-5">
             <div>
@@ -448,7 +485,8 @@ function HeroSideCardEditor({ card }: { card: HeroSideCard }) {
 
             <TextInput
                 label="Card Text"
-                defaultValue={card.defaultText}
+                value={cardText}
+                onChange={onCardTextChange}
                 placeholder="Card text"
             />
 
@@ -456,6 +494,9 @@ function HeroSideCardEditor({ card }: { card: HeroSideCard }) {
                 title={card.uploadTitle}
                 description={card.uploadDescription}
                 compact
+                imageUrl={imageUrl}
+                onUploadCropped={onUploadImage}
+                onRemove={onRemoveImage}
             />
         </div>
     );
@@ -688,8 +729,127 @@ function PreviewPanel() {
 }
 
 export default function AdminHomepagePage() {
+    const BUCKET_NAME = "images";
     const [showSidebar, setShowSidebar] = useState(false);
     const [openSlides, setOpenSlides] = useState<number[]>([1]);
+    const [imageConfig, setImageConfig] = useState<HomepageImageConfig>({
+        heroSlides: [null, null, null, null],
+        heroSideTop: null,
+        heroSideBottom: null,
+        seasonImages: [null, null, null, null],
+    });
+    const [textConfig, setTextConfig] = useState<HomepageTextConfig>(
+        DEFAULT_HOMEPAGE_TEXT_CONFIG
+    );
+    const [loadingConfig, setLoadingConfig] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    const [fallbackImages, setFallbackImages] = useState<{
+        heroSlides: string[];
+        heroSideTop: string | null;
+        heroSideBottom: string | null;
+        seasonImages: string[];
+    }>({
+        heroSlides: [],
+        heroSideTop: null,
+        heroSideBottom: null,
+        seasonImages: [],
+    });
+
+    useEffect(() => {
+        const loadConfig = async () => {
+            const supabase = createClient();
+            const config = await fetchHomepageImageConfig(supabase);
+            const text = await fetchHomepageTextConfig(supabase);
+            setImageConfig(config);
+            setTextConfig(text);
+            setLoadingConfig(false);
+        };
+        loadConfig();
+    }, []);
+
+    useEffect(() => {
+        const loadFallbackImages = async () => {
+            const supabase = createClient();
+
+            const toUrl = (path?: string | null) =>
+                path ? supabase.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl : null;
+
+            const [{ data: shirtItems }, { data: trouserItems }, { data: accessoryItems }, { data: items }] =
+                await Promise.all([
+                    supabase
+                        .from("items")
+                        .select("id, image_id")
+                        .contains("tags", ["Graphic Tees"])
+                        .limit(4),
+                    supabase
+                        .from("items")
+                        .select("id, image_id")
+                        .contains("tags", ["Trouser"])
+                        .range(1, 1),
+                    supabase
+                        .from("items")
+                        .select("id, image_id")
+                        .contains("tags", ["Accessories"])
+                        .range(0, 0),
+                    supabase.from("items").select("id, image_id").limit(4),
+                ]);
+
+            const heroSlides = (shirtItems ?? [])
+                .map((item) => toUrl(item.image_id?.[0]))
+                .filter((v): v is string => Boolean(v));
+            const heroSideTop = toUrl(trouserItems?.[0]?.image_id?.[0]);
+            const heroSideBottom = toUrl(accessoryItems?.[0]?.image_id?.[0]);
+            const seasonImages = (items ?? [])
+                .map((item) => toUrl(item.image_id?.[0]))
+                .filter((v): v is string => Boolean(v));
+
+            setFallbackImages({
+                heroSlides,
+                heroSideTop,
+                heroSideBottom,
+                seasonImages,
+            });
+        };
+        loadFallbackImages();
+    }, []);
+
+    const toPublicUrl = (path: string | null) =>
+        path ? createClient().storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl : null;
+
+    const uploadHomepageImage = async (file: File, kind: string) => {
+        const supabase = createClient();
+        const { data: authData, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !authData.user) {
+            throw new Error("You must be logged in to upload homepage images.");
+        }
+        const rawExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const ext = ["jpg", "jpeg", "png", "webp", "gif"].includes(rawExt) ? rawExt : "jpg";
+        const safeKind = kind.replace(/[^\w-]/g, "_");
+        const path = `Homepage/${Date.now()}-${safeKind}.${ext}`;
+        const { data, error } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+        if (error || !data) throw new Error(error?.message ?? "Failed to upload image.");
+        return data.path;
+    };
+
+    const saveChanges = async () => {
+        const supabase = createClient();
+        setSaving(true);
+        setStatusMessage(null);
+        try {
+            await saveHomepageImageConfig(supabase, imageConfig);
+            await saveHomepageTextConfig(supabase, textConfig);
+            setStatusMessage("Homepage content saved.");
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : "Failed to save homepage images.";
+            setStatusMessage(message);
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const toggleSlide = (slideId: number) => {
         setOpenSlides((prev) =>
@@ -732,11 +892,16 @@ export default function AdminHomepagePage() {
 
                         <button
                             type="button"
+                            onClick={saveChanges}
+                            disabled={saving || loadingConfig}
                             className="inline-flex items-center gap-2 rounded-full bg-[#C1121F] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
                         >
                             <FiSave size={16} />
-                            Save Changes
+                            {saving ? "Saving..." : "Save Changes"}
                         </button>
+                        {statusMessage ? (
+                            <span className="text-xs font-medium text-[#6b7280]">{statusMessage}</span>
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -756,32 +921,42 @@ export default function AdminHomepagePage() {
                         <div className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
                             <TextInput
                                 label="Brand Title"
-                                defaultValue="TRENDY WEAR"
+                                value={textConfig.brandTitle}
+                                onChange={(value) => setTextConfig((prev) => ({ ...prev, brandTitle: value }))}
                                 placeholder="TRENDY WEAR"
                             />
                             <TextInput
                                 label="Announcement / Small Header"
-                                defaultValue="New arrivals this week"
+                                value={textConfig.announcement}
+                                onChange={(value) =>
+                                    setTextConfig((prev) => ({ ...prev, announcement: value }))
+                                }
                                 placeholder="New arrivals this week"
                             />
                             <TextInput
                                 label="Navigation Label 1"
-                                defaultValue="Products"
+                                value={textConfig.navLabel1}
+                                onChange={(value) => setTextConfig((prev) => ({ ...prev, navLabel1: value }))}
                                 placeholder="Products"
                             />
                             <TextInput
                                 label="Navigation Label 2"
-                                defaultValue="New In"
+                                value={textConfig.navLabel2}
+                                onChange={(value) => setTextConfig((prev) => ({ ...prev, navLabel2: value }))}
                                 placeholder="New In"
                             />
                             <TextInput
                                 label="Navigation Label 3"
-                                defaultValue="Sales"
+                                value={textConfig.navLabel3}
+                                onChange={(value) => setTextConfig((prev) => ({ ...prev, navLabel3: value }))}
                                 placeholder="Sales"
                             />
                             <TextInput
                                 label="Header CTA Label"
-                                defaultValue="Shop Now"
+                                value={textConfig.headerCtaLabel}
+                                onChange={(value) =>
+                                    setTextConfig((prev) => ({ ...prev, headerCtaLabel: value }))
+                                }
                                 placeholder="Shop Now"
                             />
                         </div>
@@ -797,9 +972,42 @@ export default function AdminHomepagePage() {
                             {heroSlides.map((slide) => (
                                 <SlideEditor
                                     key={slide.id}
-                                    slide={slide}
+                                    slide={{ id: slide.id, ...textConfig.heroSlides[slide.id - 1] }}
                                     isOpen={openSlides.includes(slide.id)}
                                     onToggle={() => toggleSlide(slide.id)}
+                                    onSlideChange={(patch) =>
+                                        setTextConfig((prev) => {
+                                            const nextSlides = [...prev.heroSlides];
+                                            nextSlides[slide.id - 1] = {
+                                                ...nextSlides[slide.id - 1],
+                                                ...patch,
+                                            };
+                                            return { ...prev, heroSlides: nextSlides };
+                                        })
+                                    }
+                                    imageUrl={
+                                        toPublicUrl(imageConfig.heroSlides[slide.id - 1] ?? null) ??
+                                        fallbackImages.heroSlides[slide.id - 1] ??
+                                        null
+                                    }
+                                    onUploadImage={async (file) => {
+                                        const uploadedPath = await uploadHomepageImage(
+                                            file,
+                                            `hero-slide-${slide.id}`
+                                        );
+                                        setImageConfig((prev) => {
+                                            const nextSlides = [...prev.heroSlides];
+                                            nextSlides[slide.id - 1] = uploadedPath;
+                                            return { ...prev, heroSlides: nextSlides };
+                                        });
+                                    }}
+                                    onRemoveImage={() =>
+                                        setImageConfig((prev) => {
+                                            const nextSlides = [...prev.heroSlides];
+                                            nextSlides[slide.id - 1] = null;
+                                            return { ...prev, heroSlides: nextSlides };
+                                        })
+                                    }
                                 />
                             ))}
                         </div>
@@ -813,7 +1021,47 @@ export default function AdminHomepagePage() {
                     >
                         <div className="grid gap-6 xl:grid-cols-2">
                             {heroSideCards.map((card) => (
-                                <HeroSideCardEditor key={card.id} card={card} />
+                                <HeroSideCardEditor
+                                    key={card.id}
+                                    card={card}
+                                    cardText={
+                                        card.id === "top"
+                                            ? textConfig.heroSideTopText
+                                            : textConfig.heroSideBottomText
+                                    }
+                                    onCardTextChange={(value) =>
+                                        setTextConfig((prev) =>
+                                            card.id === "top"
+                                                ? { ...prev, heroSideTopText: value }
+                                                : { ...prev, heroSideBottomText: value }
+                                        )
+                                    }
+                                    imageUrl={toPublicUrl(
+                                        card.id === "top"
+                                            ? imageConfig.heroSideTop
+                                            : imageConfig.heroSideBottom
+                                    ) ?? (card.id === "top"
+                                        ? fallbackImages.heroSideTop
+                                        : fallbackImages.heroSideBottom)}
+                                    onUploadImage={async (file) => {
+                                        const uploadedPath = await uploadHomepageImage(
+                                            file,
+                                            `hero-side-${card.id}`
+                                        );
+                                        setImageConfig((prev) =>
+                                            card.id === "top"
+                                                ? { ...prev, heroSideTop: uploadedPath }
+                                                : { ...prev, heroSideBottom: uploadedPath }
+                                        );
+                                    }}
+                                    onRemoveImage={() =>
+                                        setImageConfig((prev) =>
+                                            card.id === "top"
+                                                ? { ...prev, heroSideTop: null }
+                                                : { ...prev, heroSideBottom: null }
+                                        )
+                                    }
+                                />
                             ))}
                         </div>
                     </SectionCard>
@@ -827,12 +1075,21 @@ export default function AdminHomepagePage() {
                             <div className="space-y-5">
                                 <TextInput
                                     label="Section Title"
-                                    defaultValue="Collection for all seasons."
+                                    value={textConfig.collectionsTitle}
+                                    onChange={(value) =>
+                                        setTextConfig((prev) => ({ ...prev, collectionsTitle: value }))
+                                    }
                                     placeholder="Collection for all seasons."
                                 />
                                 <TextArea
                                     label="Section Description"
-                                    defaultValue="A versatile foundation for every day. Our Collection for All Seasons blends minimalist design with year-round durability, offering timeless essentials engineered to transition effortlessly through any climate."
+                                    value={textConfig.collectionsDescription}
+                                    onChange={(value) =>
+                                        setTextConfig((prev) => ({
+                                            ...prev,
+                                            collectionsDescription: value,
+                                        }))
+                                    }
                                     placeholder="Section description"
                                     rows={7}
                                 />
@@ -845,6 +1102,27 @@ export default function AdminHomepagePage() {
                                         title={`Season Image ${imageNumber}`}
                                         description="Supporting visual for this section."
                                         compact
+                                        imageUrl={toPublicUrl(
+                                            imageConfig.seasonImages[imageNumber - 1] ?? null
+                                        ) ?? fallbackImages.seasonImages[imageNumber - 1] ?? null}
+                                        onUploadCropped={async (file) => {
+                                            const uploadedPath = await uploadHomepageImage(
+                                                file,
+                                                `season-${imageNumber}`
+                                            );
+                                            setImageConfig((prev) => {
+                                                const next = [...prev.seasonImages];
+                                                next[imageNumber - 1] = uploadedPath;
+                                                return { ...prev, seasonImages: next };
+                                            });
+                                        }}
+                                        onRemove={() =>
+                                            setImageConfig((prev) => {
+                                                const next = [...prev.seasonImages];
+                                                next[imageNumber - 1] = null;
+                                                return { ...prev, seasonImages: next };
+                                            })
+                                        }
                                     />
                                 ))}
                             </div>
@@ -861,22 +1139,35 @@ export default function AdminHomepagePage() {
                             <div className="grid gap-5 xl:grid-cols-2 2xl:grid-cols-4">
                                 <TextInput
                                     label="Section Title"
-                                    defaultValue="Women's Wear"
+                                    value={textConfig.womenTitle}
+                                    onChange={(value) => setTextConfig((prev) => ({ ...prev, womenTitle: value }))}
                                     placeholder="Women's Wear"
                                 />
                                 <TextInput
                                     label="Section Subtitle"
-                                    defaultValue="Made for her."
+                                    value={textConfig.womenSubtitle}
+                                    onChange={(value) =>
+                                        setTextConfig((prev) => ({ ...prev, womenSubtitle: value }))
+                                    }
                                     placeholder="Made for her."
                                 />
                                 <TextInput
                                     label="Button Text"
-                                    defaultValue="View All Product"
+                                    value={textConfig.womenButtonText}
+                                    onChange={(value) =>
+                                        setTextConfig((prev) => ({ ...prev, womenButtonText: value }))
+                                    }
                                     placeholder="View All Product"
                                 />
                                 <TextInput
                                     label="Background Color"
-                                    defaultValue="#C1121F"
+                                    value={textConfig.womenBackgroundColor}
+                                    onChange={(value) =>
+                                        setTextConfig((prev) => ({
+                                            ...prev,
+                                            womenBackgroundColor: value,
+                                        }))
+                                    }
                                     placeholder="#C1121F"
                                 />
                             </div>
@@ -904,22 +1195,35 @@ export default function AdminHomepagePage() {
                             <div className="grid gap-5 xl:grid-cols-2 2xl:grid-cols-4">
                                 <TextInput
                                     label="Section Title"
-                                    defaultValue="Men's Wear"
+                                    value={textConfig.menTitle}
+                                    onChange={(value) => setTextConfig((prev) => ({ ...prev, menTitle: value }))}
                                     placeholder="Men's Wear"
                                 />
                                 <TextInput
                                     label="Section Subtitle"
-                                    defaultValue="Made for him."
+                                    value={textConfig.menSubtitle}
+                                    onChange={(value) =>
+                                        setTextConfig((prev) => ({ ...prev, menSubtitle: value }))
+                                    }
                                     placeholder="Made for him."
                                 />
                                 <TextInput
                                     label="Button Text"
-                                    defaultValue="View All Product"
+                                    value={textConfig.menButtonText}
+                                    onChange={(value) =>
+                                        setTextConfig((prev) => ({ ...prev, menButtonText: value }))
+                                    }
                                     placeholder="View All Product"
                                 />
                                 <TextInput
                                     label="Background Accent"
-                                    defaultValue="#EEF3F7"
+                                    value={textConfig.menBackgroundAccent}
+                                    onChange={(value) =>
+                                        setTextConfig((prev) => ({
+                                            ...prev,
+                                            menBackgroundAccent: value,
+                                        }))
+                                    }
                                     placeholder="#EEF3F7"
                                 />
                             </div>

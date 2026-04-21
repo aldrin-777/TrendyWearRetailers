@@ -17,6 +17,7 @@ import {
 import { HiOutlineMenu, HiOutlineX } from 'react-icons/hi';
 import { useUser } from '../context/UserContext';
 import { createClient } from "@/utils/supabase/client";
+import { fetchHomepageTextConfig } from "@/lib/homepageContent";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -27,11 +28,22 @@ export default function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { cartCount } = useCart();
+  const [brandTitle, setBrandTitle] = useState("Trendy Wear");
+  const [navLabels, setNavLabels] = useState(["Products", "New In", "Sales"]);
+
+  useEffect(() => {
+    const loadText = async () => {
+      const config = await fetchHomepageTextConfig(createClient());
+      setBrandTitle(config.brandTitle);
+      setNavLabels([config.navLabel1, config.navLabel2, config.navLabel3]);
+    };
+    loadText();
+  }, []);
 
   const links = [
-    { label: "Products", href: "/products-page" },
-    { label: "New In", href: "/new-in" },
-    { label: "Sales", href: "/sales" },
+    { label: navLabels[0] || "Products", href: "/products-page" },
+    { label: navLabels[1] || "New In", href: "/new-in" },
+    { label: navLabels[2] || "Sales", href: "/sales" },
   ];
 
   const icons = [
@@ -218,7 +230,7 @@ export default function Navbar() {
         {/* Logo */}
         <div className="flex-shrink-0 lg:px-16 px-2 text-center">
           <Link href="/" className="text-2xl font-bold text-[#C1121F] uppercase">
-            Trendy Wear
+            {brandTitle}
           </Link>
         </div>
 

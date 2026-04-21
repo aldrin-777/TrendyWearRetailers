@@ -7,6 +7,7 @@ import Image from "next/image";
 import CategoryLink from "./ui/CategoryLink";
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { fetchHomepageImageConfig, fetchHomepageTextConfig } from "@/lib/homepageContent";
 
 const BUCKET_NAME = "images";
 
@@ -14,6 +15,7 @@ interface HeroSlide {
   title: string;
   description: string;
   href: string;
+  buttonText: string;
   image: string;
 }
 
@@ -31,6 +33,8 @@ export default function Hero() {
   useEffect(() => {
     async function fetchHeroData() {
       const supabase = createClient();
+      const config = await fetchHomepageImageConfig(supabase);
+      const textConfig = await fetchHomepageTextConfig(supabase);
 
       const { data: shirtItems, error: shirtsError } = await supabase
         .from("items")
@@ -56,16 +60,21 @@ export default function Hero() {
       return;
     }
 
-      const slides: HeroSlide[] = (shirtItems || []).map((item) => {
+      const slides: HeroSlide[] = (shirtItems || []).map((item, index) => {
         const firstImageId = item.image_id?.[0] ?? null;
-        const imageUrl = firstImageId
+        const customPath = config.heroSlides[index] ?? null;
+        const customUrl = customPath
+          ? supabase.storage.from(BUCKET_NAME).getPublicUrl(customPath).data.publicUrl
+          : null;
+        const imageUrl = customUrl || (firstImageId
           ? supabase.storage.from(BUCKET_NAME).getPublicUrl(firstImageId).data.publicUrl
-          : "/images/placeholder.jpg";
+          : "/images/placeholder.jpg");
 
         return {
-          title: item.name ?? "Featured Shirts",
-          description: "Check out our latest shirt collection",
-          href: `/products/${item.id}`,
+          title: textConfig.heroSlides[index]?.title ?? item.name ?? "Featured Shirts",
+          description: textConfig.heroSlides[index]?.subtitle ?? "Check out our latest shirt collection",
+          href: textConfig.heroSlides[index]?.buttonLink ?? `/products/${item.id}`,
+          buttonText: textConfig.heroSlides[index]?.buttonText ?? "View Collection",
           image: imageUrl,
         };
       });
@@ -73,15 +82,19 @@ export default function Hero() {
       const stacked: StackedCard[] = [
         ...(trouserItems || []).map((item, idx) => ({
           id: 1,
-          title: `#${item.name?.split(" ")[0] || "Trendy"} Wear`,
-          image: item.image_id?.[0]
+          title: textConfig.heroSideTopText || `#${item.name?.split(" ")[0] || "Trendy"} Wear`,
+          image: config.heroSideTop
+            ? supabase.storage.from(BUCKET_NAME).getPublicUrl(config.heroSideTop).data.publicUrl
+            : item.image_id?.[0]
             ? supabase.storage.from(BUCKET_NAME).getPublicUrl(item.image_id[0]).data.publicUrl
             : "/images/placeholder.jpg",
         })),
         ...(accessoryItems || []).map((item, idx) => ({
           id: 2,
-          title: `#${item.name?.split(" ")[0] || "Cool"} Accessory`,
-          image: item.image_id?.[0]
+          title: textConfig.heroSideBottomText || `#${item.name?.split(" ")[0] || "Cool"} Accessory`,
+          image: config.heroSideBottom
+            ? supabase.storage.from(BUCKET_NAME).getPublicUrl(config.heroSideBottom).data.publicUrl
+            : item.image_id?.[0]
             ? supabase.storage.from(BUCKET_NAME).getPublicUrl(item.image_id[0]).data.publicUrl
             : "/images/placeholder.jpg",
         })),
@@ -101,6 +114,7 @@ export default function Hero() {
       title: "New Collection",
       description: "Discover fresh styles",
       href: "/collections",
+      buttonText: "View Collection",
       image: "/images/placeholder.jpg",
     },
   ];

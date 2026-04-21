@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { addToWishlist } from '@/app/actions/user/AddToWishlist';
 import { removeFromWishlist } from '@/app/actions/user/RemoveFromWishlist';
 import { fetchFavorites } from '../lib/fetchFavorites';
+import { fetchHomepageTextConfig } from '@/lib/homepageContent';
 import Link from 'next/link';
 import TopModal from '../components/TopModal';
 
@@ -23,6 +24,10 @@ type WomensProduct = {
 export default function WomensWearScroll() {
   const [womensWearData, setWomensWearData] = useState<WomensProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sectionTitle, setSectionTitle] = useState("Women's Wear");
+  const [sectionSubtitle, setSectionSubtitle] = useState("Made for her.");
+  const [sectionButtonText, setSectionButtonText] = useState("View All Product");
+  const [sectionBgColor, setSectionBgColor] = useState("#b91c1c");
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [modal, setModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const router = useRouter();
@@ -30,6 +35,11 @@ export default function WomensWearScroll() {
   useEffect(() => {
     async function fetchWomensWear() {
       const supabase = createClient();
+      const textConfig = await fetchHomepageTextConfig(supabase);
+      setSectionTitle(textConfig.womenTitle);
+      setSectionSubtitle(textConfig.womenSubtitle);
+      setSectionButtonText(textConfig.womenButtonText);
+      setSectionBgColor(textConfig.womenBackgroundColor || "#b91c1c");
 
       const { data: items, error } = await supabase
         .from("items")
@@ -134,29 +144,29 @@ export default function WomensWearScroll() {
       )}
         <div className="max-w-7xl mx-auto w-full px-0 md:px-2">
 
-        <div className="bg-[#b91c1c] w-[calc(100%+4rem)] lg:w-[calc(100%+10rem)] rounded-l-[15px] flex flex-col lg:flex-row overflow-hidden relative min-h-[600px] py-8">
+        <div style={{ backgroundColor: sectionBgColor }} className="w-[calc(100%+4rem)] lg:w-[calc(100%+10rem)] rounded-l-[15px] flex flex-col lg:flex-row overflow-hidden relative min-h-[600px] py-8">
             
         {/* LEFT PANEL */}
         <div className="w-full lg:w-[530px] shrink-0 p-8 md:p-12 text-white flex flex-col justify-between z-10 relative">
           <div className="space-y-4 pt-4">
             <h2 className="text-4xl text-[#FDF0D5] md:text-5xl lg:text-6xl font-semibold">
-              Women&apos;s Wear
+              {sectionTitle}
             </h2>
             <p className="text-red-100 text-3xl font-regular tracking-wide opacity-90">
-              Made for her.
+              {sectionSubtitle}
             </p>
           </div>
 
           <div className="pt-12 lg:pt-0 pb-1 border-b inline-flex items-center gap-2 w-fit cursor-pointer group">
             <Link href="/products-page?category=Women">
-              <span className="text-xl font-medium group-hover:text-red-100 transition">View All Product</span>
+              <span className="text-xl font-medium group-hover:text-red-100 transition">{sectionButtonText}</span>
             </Link>
             <MdArrowOutward className="text-2xl group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform ml-4" />
           </div>
         </div>
 
         {/* RIGHT PANEL */}
-        <div className="flex-1 min-w-0 bg-[#b91c1c] flex items-center relative">
+        <div style={{ backgroundColor: sectionBgColor }} className="flex-1 min-w-0 flex items-center relative">
           {/* Scrollable  */}
           <div className="w-full flex items-center gap-6 px-6 py-8 overflow-x-auto hide-scrollbar scroll-smooth fade-edge-left">
               {loading ? (

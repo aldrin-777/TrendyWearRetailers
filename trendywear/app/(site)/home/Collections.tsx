@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { fetchHomepageImageConfig, fetchHomepageTextConfig } from "@/lib/homepageContent";
 
 const BUCKET_NAME = "images";
 
@@ -11,16 +12,25 @@ type CollectionItem = {
   id: number;
   name: string;
   image: string;
+  href?: string | null;
 };
 
 export default function Collections() {
   const [collectionsData, setCollectionsData] = useState<CollectionItem[]>([]);
+  const [sectionTitle, setSectionTitle] = useState("Collection for all seasons.");
+  const [sectionDescription, setSectionDescription] = useState(
+    "A versatile foundation for every day. Our Collection for All Seasons blends minimalist design with year-round durability, offering timeless essentials engineered to transition effortlessly through any climate."
+  );
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     async function fetchCollections() {
       const supabase = createClient();
+      const config = await fetchHomepageImageConfig(supabase);
+      const textConfig = await fetchHomepageTextConfig(supabase);
+      setSectionTitle(textConfig.collectionsTitle);
+      setSectionDescription(textConfig.collectionsDescription);
 
       const { data: items, error } = await supabase
         .from("items")
@@ -33,8 +43,22 @@ export default function Collections() {
         return;
       }
 
-      const randomItems =
-        items.sort(() => Math.random() - 0.5).slice(0, 4);
+      const customSeasonImages = config.seasonImages
+        .filter((path): path is string => Boolean(path))
+        .map((path, index) => ({
+          id: -1 * (index + 1),
+          name: `Season Image ${index + 1}`,
+          image: supabase.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl,
+          href: null,
+        }));
+
+      if (customSeasonImages.length === 4) {
+        setCollectionsData(customSeasonImages);
+        setLoading(false);
+        return;
+      }
+
+      const randomItems = items.sort(() => Math.random() - 0.5).slice(0, 4);
 
       const mapped: CollectionItem[] = randomItems.map((item) => {
         const firstImageId = item.image_id?.[0] ?? null;
@@ -49,6 +73,7 @@ export default function Collections() {
           id: item.id,
           name: item.name ?? "Unnamed",
           image: imageUrl,
+          href: `/products/${item.id}`,
         };
       });
 
@@ -69,15 +94,13 @@ export default function Collections() {
             className="text-3xl md:text-4xl font-medium animate-fade-in-up opacity-0"
             style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}
           >
-            Collection for all seasons.
+            {sectionTitle}
           </h2>
           <p 
             className="font-light text-xl animate-fade-in-up opacity-0"
             style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}
           >
-            A versatile foundation for every day. Our Collection for All Seasons blends 
-            minimalist design with year-round durability, offering timeless essentials 
-            engineered to transition effortlessly through any climate.
+            {sectionDescription}
           </p>
         </div>
 
@@ -113,7 +136,9 @@ export default function Collections() {
               >
                 <div 
                   className="aspect-[3/4] rounded-2xl transition duration-300 cursor-pointer relative group overflow-hidden"
-                  onClick={() => router.push(`/products/${item.id}`)}
+                  onClick={() => {
+                    if (item.href) router.push(item.href);
+                  }}
                 >
                   <Image
                     src={item.image}
@@ -124,17 +149,19 @@ export default function Collections() {
                   />
 
                   {/* Hover Overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/20">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/products/${item.id}`);
-                      }}
-                      className="bg-white/90 px-4 py-2 rounded-full text-sm font-semibold text-black shadow-sm hover:bg-white transition-colors"
-                    >
-                      View Item
-                    </button>
-                  </div>
+                  {item.href ? (
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/20">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(item.href!);
+                        }}
+                        className="bg-white/90 px-4 py-2 rounded-full text-sm font-semibold text-black shadow-sm hover:bg-white transition-colors"
+                      >
+                        View Item
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );

@@ -8,6 +8,7 @@ interface Slide {
   title: string;
   description: string;
   href: string;
+  buttonText?: string;
   image: string;   
 }
 
@@ -53,7 +54,7 @@ export default function Carousel({ slides, interval = 5000 }: CarouselProps) {
               href={slide.href}
               className="inline-flex items-center gap-2 text-white border-b border-white pb-1 hover:text-gray-300 hover:border-gray-300 transition mt-2"
             >
-              <span className="font-medium tracking-wide">View Collection</span>
+              <span className="font-medium tracking-wide">{slide.buttonText ?? "View Collection"}</span>
               <MdArrowOutward />
             </Link>
           </div>
