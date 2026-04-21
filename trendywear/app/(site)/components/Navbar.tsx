@@ -93,11 +93,7 @@ export default function Navbar() {
 
   const AccountDropdown = ({ label }: { label?: string }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [isAdmin, setIfAdmin] = useState(false);
-
-    useEffect(() => {
-      checkIfAdmin().then(setIfAdmin)
-    }, [])
+    const { isAdmin } = useUser();
 
     const handleLogout = async () => {
       await supabase.auth.signOut();
@@ -105,21 +101,6 @@ export default function Navbar() {
       alert("You have been logged out.");
       window.location.href = "/";
     };
-
-    const checkIfAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const user_id = user?.id;
-
-      const { data: dbUser, error: dbError } = await supabase
-        .from('users')
-        .select('is_admin')
-        .eq('id', user_id)
-        .single()
-
-      if (dbError) throw new Error(dbError.message)
-
-      return dbUser?.is_admin
-    }
 
     const buttonClass = label
       ? "flex items-center space-x-3 p-2 hover:bg-[#003049]/10 rounded transition w-full"
